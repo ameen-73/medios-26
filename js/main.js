@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (proofUpload) proofUpload.style.display = "block";
         if (venueStep) venueStep.style.display = "none";
         if (paidCheckbox) paidCheckbox.required = true;
-        if (formStatus) formStatus.textContent = "Please pay ₹69 via UPI and share screenshot on WhatsApp (+91 7356217409).";
+        if (formStatus) formStatus.textContent = "Please pay ₹69 via UPI and share screenshot on WhatsApp (+91 99460 96142).";
       } else {
         if (onlineStep) onlineStep.style.display = "none";
         if (proofUpload) proofUpload.style.display = "none";
@@ -55,7 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const shareProofWaBtn = document.getElementById("share-proof-wa-btn");
   if (shareProofWaBtn) {
     shareProofWaBtn.addEventListener("click", () => {
-      const waNumber = window.MC_CONFIG?.WHATSAPP_NUMBER || "7356217409";
+      const waNumber = window.MC_CONFIG?.WHATSAPP_PAYMENT_NUMBER || "9946096142";
       const name = (document.getElementById("name")?.value || "").trim();
       const campus = (document.getElementById("campus")?.value || "").trim();
       const phone = (document.getElementById("phone")?.value || "").trim();

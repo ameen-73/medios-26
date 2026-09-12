@@ -8,7 +8,7 @@ Official website and delegate registration portal for **Jamia Madeenathunnoor Me
 - **Interactive Registration**:
   - Full details collection (Name, Campus Name, Class, Phone Number).
   - Choice of payment method:
-    - **01 Pay Online**: UPI Scan & Pay with QR code (`₹69`), payment verification checkbox, and direct WhatsApp screenshot confirmation to organizer (+91 7356217409).
+    - **01 Pay Online**: UPI Scan & Pay with QR code (`₹69`), payment verification checkbox, and direct WhatsApp screenshot confirmation to organizer (+91 99460 96142).
     - **02 Pay at the Venue**: Reserve place and pay at the counter upon arrival.
   - Automated WhatsApp registration confirmation and Official Delegates WhatsApp Group integration.
   - Instant LocalStorage fallback + Google Apps Script backend integration.
