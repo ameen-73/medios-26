@@ -1,6 +1,6 @@
 /**
  * JAMIA MADEENATHUNNOOR — MEDIA CONCLAVE 2026
- * Client Interactions & Registration Logic
+ * Client Interactions & Registration Logic with Live Admin Sync
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -16,6 +16,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const proofImg = document.getElementById("proof-img");
   const submitBtn = document.getElementById("submit-btn");
   const formStatus = document.getElementById("form-status");
+
+  // Broadcast channel for real-time tab-to-tab admin synchronization
+  let syncChannel = null;
+  try {
+    if (typeof BroadcastChannel !== "undefined") {
+      syncChannel = new BroadcastChannel("medios26_sync");
+    }
+  } catch (e) {
+    console.warn("BroadcastChannel not supported", e);
+  }
 
   // Default payment mode is online
   let currentPaymentMethod = "online";
@@ -133,11 +143,20 @@ document.addEventListener("DOMContentLoaded", () => {
         createdAt: new Date().toLocaleString()
       };
 
-      // 1. Save to LocalStorage for instant persistence
+      // 1. Save to LocalStorage for instant persistence & admin linkage
+      const storageKey = window.MC_CONFIG?.LOCAL_STORAGE_KEY || "medios26_registrations_v2";
       try {
-        const stored = JSON.parse(localStorage.getItem(window.MC_CONFIG.LOCAL_STORAGE_KEY) || "[]");
+        const stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
         stored.unshift(record);
-        localStorage.setItem(window.MC_CONFIG.LOCAL_STORAGE_KEY, JSON.stringify(stored));
+        localStorage.setItem(storageKey, JSON.stringify(stored));
+        
+        // Also save to backward-compatible key
+        localStorage.setItem("medios26_registrations", JSON.stringify(stored));
+
+        // Notify other open tabs (such as Admin panel) in real time
+        if (syncChannel) {
+          syncChannel.postMessage({ type: "NEW_REGISTRATION", data: record });
+        }
       } catch (err) {
         console.warn("LocalStorage save warning:", err);
       }

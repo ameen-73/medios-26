@@ -72,9 +72,13 @@
       </nav>
 
       <div class="admin-user">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#28a745;" title="Live Sync Active"></span>
+          <small style="color: #28a745; font-weight:700;">Live Linked</small>
+        </div>
         <small>Logged in as</small>
         <strong id="user-display">Organizer Admin</strong>
-        <a href="../index.html" target="_blank" style="margin-top: 6px; color: #fff;">View Live Site ↗</a>
+        <a href="../index.html" target="_blank" style="margin-top: 8px; color: #fff;">View Live Website ↗</a>
         <a id="logout-btn" style="color: var(--o); margin-top: 4px;">Logout ↗</a>
       </div>
     </aside>
@@ -84,11 +88,12 @@
       <header>
         <div>
           <small>MEDIA CONCLAVE 2026</small>
-          <h1>CONTROL DESK.</h1>
+          <h1>REGISTRATIONS DESK.</h1>
         </div>
         <div class="admin-header-actions">
-          <button id="refresh-btn">🔄 Refresh Data</button>
+          <button id="refresh-btn">🔄 Refresh</button>
           <button id="export-csv-btn">📥 Export CSV</button>
+          <button id="export-json-btn">📦 Export JSON</button>
         </div>
       </header>
 
@@ -118,11 +123,13 @@
         <div class="admin-card">
           <div class="card-top-bar">
             <div class="search-filter-box">
-              <input type="text" id="search-input" placeholder="Search by name, campus, class, or phone...">
+              <input type="text" id="search-input" placeholder="Search by name, campus, class, phone, or ID...">
               <select id="filter-payment">
-                <option value="all">All Payment Types</option>
-                <option value="online">Online Paid</option>
+                <option value="all">All Records</option>
+                <option value="online">Online Paid (₹69)</option>
                 <option value="venue">Pay at Venue</option>
+                <option value="verified">Status: Verified</option>
+                <option value="pending">Status: Pending</option>
               </select>
             </div>
             <div style="font-size: 0.85rem; color: #777;">
@@ -135,23 +142,23 @@
               <thead>
                 <tr>
                   <th>Reg ID</th>
-                  <th>Name</th>
-                  <th>Campus</th>
+                  <th>Participant</th>
+                  <th>Campus / College</th>
                   <th>Class</th>
-                  <th>Phone</th>
+                  <th>Phone Number</th>
                   <th>Payment</th>
                   <th>Proof</th>
                   <th>Status</th>
-                  <th>Date</th>
-                  <th>Action</th>
+                  <th>Registered Date</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="table-body">
-                <!-- Rows injected dynamically -->
+                <!-- Injected via admin.js -->
               </tbody>
             </table>
             <div class="empty-state" id="empty-state" style="display: none;">
-              No registrations found.
+              No registration records found.
             </div>
           </div>
         </div>
@@ -188,8 +195,20 @@
       <h3 style="font-family: var(--font-heading);">Payment Proof Screenshot</h3>
       <p style="color: #999; font-size: 0.8rem;" id="modal-reg-info"></p>
       <img id="modal-proof-img" src="" alt="Payment Proof">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
         <a id="modal-download-btn" href="" download="payment_proof.jpg" style="color: var(--o); font-weight: 700;">Download Image ↗</a>
+        <a id="modal-wa-btn" href="" target="_blank" style="background:#25D366; color:#fff; padding:6px 14px; font-weight:700; border-radius:2px;">Chat on WhatsApp ↗</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full Participant Details Modal -->
+  <div class="modal-overlay" id="details-modal">
+    <div class="modal-content" style="max-width: 650px;">
+      <button class="modal-close" id="details-close-btn">&times;</button>
+      <h2 style="font-family: var(--font-heading); margin-bottom: 15px; color: var(--o);">REGISTRATION DETAILS</h2>
+      <div id="details-modal-body" style="line-height: 1.8; font-size: 0.95rem;">
+        <!-- Injected via JavaScript -->
       </div>
     </div>
   </div>
