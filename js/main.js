@@ -10,10 +10,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const venueStep = document.getElementById("venue-payment-step");
   const proofUpload = document.getElementById("proof-upload-section");
   const paidCheckbox = document.getElementById("paid-checkbox");
-  const proofInput = document.getElementById("paymentProof");
-  const proofPreview = document.getElementById("proof-preview");
-  const proofFileName = document.getElementById("proof-file-name");
-  const proofImg = document.getElementById("proof-img");
   const submitBtn = document.getElementById("submit-btn");
   const formStatus = document.getElementById("form-status");
 
@@ -29,8 +25,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Default payment mode is online
   let currentPaymentMethod = "online";
-  let base64ProofData = "";
-  let proofFileType = "";
 
   // Handle payment method switch
   payOptions.forEach(radio => {
@@ -46,14 +40,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (proofUpload) proofUpload.style.display = "block";
         if (venueStep) venueStep.style.display = "none";
         if (paidCheckbox) paidCheckbox.required = true;
-        if (proofInput) proofInput.required = false;
-        if (formStatus) formStatus.textContent = "Upload your payment screenshot or share it to WhatsApp (+91 7356217409).";
+        if (formStatus) formStatus.textContent = "Please pay ₹69 via UPI and share screenshot on WhatsApp (+91 7356217409).";
       } else {
         if (onlineStep) onlineStep.style.display = "none";
         if (proofUpload) proofUpload.style.display = "none";
         if (venueStep) venueStep.style.display = "flex";
         if (paidCheckbox) paidCheckbox.required = false;
-        if (proofInput) proofInput.required = false;
         if (formStatus) formStatus.textContent = "No payment screenshot is needed for venue payment.";
       }
     });
@@ -62,7 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Dynamic WhatsApp Screenshot Share Button
   const shareProofWaBtn = document.getElementById("share-proof-wa-btn");
   if (shareProofWaBtn) {
-    shareProofWaBtn.addEventListener("click", (e) => {
+    shareProofWaBtn.addEventListener("click", () => {
       const waNumber = window.MC_CONFIG?.WHATSAPP_NUMBER || "7356217409";
       const name = (document.getElementById("name")?.value || "").trim();
       const campus = (document.getElementById("campus")?.value || "").trim();
@@ -74,37 +66,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       
       shareProofWaBtn.href = `https://wa.me/91${waNumber}?text=${encodeURIComponent(text)}`;
-    });
-  }
-
-  // Handle proof image upload & preview
-  if (proofInput) {
-    proofInput.addEventListener("change", function () {
-      const file = this.files[0];
-      if (!file) {
-        base64ProofData = "";
-        if (proofPreview) proofPreview.style.display = "none";
-        return;
-      }
-
-      // Check max size: 8MB
-      if (file.size > 8 * 1024 * 1024) {
-        alert("Selected file is larger than 8 MB. Please choose a smaller file.");
-        this.value = "";
-        base64ProofData = "";
-        if (proofPreview) proofPreview.style.display = "none";
-        return;
-      }
-
-      proofFileType = file.type || "image/jpeg";
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        base64ProofData = e.target.result;
-        if (proofImg) proofImg.src = base64ProofData;
-        if (proofFileName) proofFileName.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-        if (proofPreview) proofPreview.style.display = "flex";
-      };
-      reader.readAsDataURL(file);
     });
   }
 
@@ -156,7 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
         paymentMethod: paymentMethod,
         paid: paymentMethod === "online" ? "yes" : "no",
         amount: fee,
-        paymentProof: base64ProofData || "",
+        paymentProof: "",
         status: paymentMethod === "online" ? "Verified" : "Pending (Venue)",
         createdAt: new Date().toLocaleString()
       };
@@ -205,14 +166,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const waGroupUrl = window.MC_CONFIG?.WHATSAPP_GROUP_URL || "https://chat.whatsapp.com/J3MuwpCT0JPCCyANZIxfWH";
       const waNumber = window.MC_CONFIG?.WHATSAPP_NUMBER || "7356217409";
       const paymentSummary = paymentMethod === "online"
-        ? `Online — ₹${fee} proof uploaded`
+        ? `Online — ₹${fee} (WhatsApp confirmation)`
         : `Pay ₹${fee} at the venue`;
 
       const waText = `*MEDIA CONCLAVE REGISTRATION*\nID: ${regId}\nName: ${name}\nCampus: ${campus}\nClass: ${className}\nPhone: ${phone}\nPayment: ${paymentSummary}`;
       const waUrl = `https://wa.me/91${waNumber}?text=${encodeURIComponent(waText)}`;
 
       const successMsg = paymentMethod === "online"
-        ? `Registration and payment screenshot saved successfully! Registration ID: ${regId}`
+        ? `Registration confirmed! Please share your payment screenshot with our organizer. Registration ID: ${regId}`
         : `Registration saved! Your place is reserved. Please pay ₹${fee} at the venue. Registration ID: ${regId}`;
 
       setStatus(successMsg, "success", waGroupUrl);
@@ -222,8 +183,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Reset form
       form.reset();
-      if (proofPreview) proofPreview.style.display = "none";
-      base64ProofData = "";
 
       if (submitBtn) {
         submitBtn.disabled = false;
