@@ -7,7 +7,7 @@ window.MC_CONFIG = {
   API_BASE: "https://script.google.com/macros/s/AKfycbxgpElqbe6d4vIJGAi49LqQYCfwtQcYOvcTQ6uFYITjeTZeM355mHlAK-Bb9QVY1-llZA/exec",
 
   // WhatsApp Organizer Number for automated registration confirmation
-  WHATSAPP_NUMBER: "8943318613",
+  WHATSAPP_NUMBER: "7356217409",
 
   // Official Delegates WhatsApp Group Link
   WHATSAPP_GROUP_URL: "https://chat.whatsapp.com/J3MuwpCT0JPCCyANZIxfWH",

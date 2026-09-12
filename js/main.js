@@ -36,7 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
   payOptions.forEach(radio => {
     radio.addEventListener("change", (e) => {
       currentPaymentMethod = e.target.value;
-      
+
       // Update radio card styling
       document.querySelectorAll(".pay-option").forEach(card => card.classList.remove("selected"));
       e.target.closest(".pay-option").classList.add("selected");
@@ -149,7 +149,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
         stored.unshift(record);
         localStorage.setItem(storageKey, JSON.stringify(stored));
-        
+
         // Also save to backward-compatible key
         localStorage.setItem("medios26_registrations", JSON.stringify(stored));
 
@@ -185,7 +185,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // 3. Display success message & Show WhatsApp Group Join Card
       const waGroupUrl = window.MC_CONFIG?.WHATSAPP_GROUP_URL || "https://chat.whatsapp.com/J3MuwpCT0JPCCyANZIxfWH";
-      const waNumber = window.MC_CONFIG?.WHATSAPP_NUMBER || "8943318613";
+      const waNumber = window.MC_CONFIG?.WHATSAPP_NUMBER || "7356217409";
       const paymentSummary = paymentMethod === "online"
         ? `Online — ₹${fee} proof uploaded`
         : `Pay ₹${fee} at the venue`;
@@ -196,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const successMsg = paymentMethod === "online"
         ? `Registration and payment screenshot saved successfully! Registration ID: ${regId}`
         : `Registration saved! Your place is reserved. Please pay ₹${fee} at the venue. Registration ID: ${regId}`;
-      
+
       setStatus(successMsg, "success", waGroupUrl);
 
       // Display dedicated post-registration card with Join WhatsApp Group button
@@ -306,7 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function setStatus(msg, type, waGroupUrl) {
     if (!formStatus) return;
     formStatus.className = `form-note ${type || ""}`;
-    
+
     if (type === "success" && waGroupUrl) {
       formStatus.innerHTML = `
         <div>${escapeHtml(msg)}</div>

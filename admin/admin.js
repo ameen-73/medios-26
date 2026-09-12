@@ -121,7 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Modals Close
   if (modalCloseBtn) modalCloseBtn.addEventListener("click", () => { proofModal.style.display = "none"; });
   if (detailsCloseBtn) detailsCloseBtn.addEventListener("click", () => { detailsModal.style.display = "none"; });
-  
+
   if (proofModal) {
     proofModal.addEventListener("click", (e) => {
       if (e.target === proofModal) proofModal.style.display = "none";
@@ -447,7 +447,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  window.viewDetails = function(id) {
+  window.viewDetails = function (id) {
     const r = registrations.find(item => item.id === id);
     if (!r) return;
 
@@ -487,7 +487,7 @@ document.addEventListener("DOMContentLoaded", () => {
     modal.style.display = "flex";
   };
 
-  window.viewProof = function(id) {
+  window.viewProof = function (id) {
     const r = registrations.find(item => item.id === id);
     if (!r || !r.paymentProof) return;
 
@@ -502,18 +502,18 @@ document.addEventListener("DOMContentLoaded", () => {
     download.target = "_blank";
     download.download = `${r.id}_proof.jpg`;
     info.textContent = `Participant: ${r.name || 'Participant'} · Campus: ${r.campus || '—'} · Class: ${r.className || '—'} · Phone: ${r.phone || '—'} (ID: ${r.id})`;
-    
+
     if (waBtn && r.phone) {
       waBtn.href = `https://wa.me/91${r.phone}?text=${encodeURIComponent(`Hi ${r.name || ''}, your registration (${r.id}) for Media Conclave 2026 has been verified.`)}`;
       waBtn.style.display = "inline-block";
     } else if (waBtn) {
       waBtn.style.display = "none";
     }
-    
+
     modal.style.display = "flex";
   };
 
-  window.toggleStatus = function(id) {
+  window.toggleStatus = function (id) {
     const r = registrations.find(item => item.id === id);
     if (!r) return;
 
@@ -533,7 +533,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  window.deleteRecord = function(id) {
+  window.deleteRecord = function (id) {
     if (!confirm(`Are you sure you want to permanently delete registration record ${id}?`)) return;
 
     // 1. Add to permanent deleted blacklist
@@ -612,7 +612,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const apiInput = document.getElementById("setting-api");
 
       if (feeInput && window.MC_CONFIG.EVENT) feeInput.value = window.MC_CONFIG.EVENT.fee || 69;
-      if (waInput) waInput.value = window.MC_CONFIG.WHATSAPP_NUMBER || "8943318613";
+      if (waInput) waInput.value = window.MC_CONFIG.WHATSAPP_NUMBER || "7356217409";
       if (groupWaInput) groupWaInput.value = window.MC_CONFIG.WHATSAPP_GROUP_URL || "https://chat.whatsapp.com/J3MuwpCT0JPCCyANZIxfWH";
       if (apiInput) apiInput.value = window.MC_CONFIG.API_BASE || "";
     }
