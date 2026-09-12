@@ -1,0 +1,12 @@
+{
+  "name": "medios26",
+  "version": "1.0.0",
+  "description": "Medios 2026 Event Management Portal",
+  "scripts": {
+    "dev": "npx serve .",
+    "start": "npx serve ."
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}
