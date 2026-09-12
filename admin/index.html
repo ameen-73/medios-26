@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,12 +11,15 @@
   <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+
   <link rel="stylesheet" href="admin.css">
   <script src="../js/config.js" defer></script>
   <script src="admin.js" defer></script>
 </head>
+
 <body>
 
   <!-- ================= 1. AUTH LOGIN VIEW ================= -->
@@ -34,12 +38,14 @@
       <form class="auth-form" id="login-form">
         <div class="auth-group">
           <label for="admin-email">Admin User ID</label>
-          <input class="auth-input" type="text" id="admin-email" placeholder="medios'26" required autocomplete="username">
+          <input class="auth-input" type="text" id="admin-email" placeholder="medios'26" required
+            autocomplete="username">
         </div>
 
         <div class="auth-group">
           <label for="admin-pass">Password</label>
-          <input class="auth-input" type="password" id="admin-pass" placeholder="••••••••" required autocomplete="current-password">
+          <input class="auth-input" type="password" id="admin-pass" placeholder="••••••••" required
+            autocomplete="current-password">
         </div>
 
         <button type="submit" class="auth-submit-btn" id="login-btn">
@@ -51,7 +57,7 @@
 
   <!-- ================= 2. MAIN ADMIN SHELL ================= -->
   <div class="admin-shell" id="admin-section" style="display: none;">
-    
+
     <!-- Sidebar -->
     <aside class="admin-side">
       <div class="admin-brand">
@@ -73,7 +79,8 @@
 
       <div class="admin-user">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#28a745;" title="Live Sync Active"></span>
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#28a745;"
+            title="Live Sync Active"></span>
           <small style="color: #28a745; font-weight:700;">Live Linked</small>
         </div>
         <small>Logged in as</small>
@@ -175,7 +182,7 @@
             </label>
             <label>
               Organizer WhatsApp Number
-              <input type="text" id="setting-whatsapp" value="8943318613">
+              <input type="text" id="setting-whatsapp" value="7356217409">
             </label>
             <label class="wide">
               Delegates WhatsApp Group Link
@@ -200,8 +207,11 @@
       <p style="color: #999; font-size: 0.8rem;" id="modal-reg-info"></p>
       <img id="modal-proof-img" src="" alt="Payment Proof">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-        <a id="modal-download-btn" href="" download="payment_proof.jpg" style="color: var(--o); font-weight: 700;">Download Image ↗</a>
-        <a id="modal-wa-btn" href="" target="_blank" style="background:#25D366; color:#fff; padding:6px 14px; font-weight:700; border-radius:2px;">Chat on WhatsApp ↗</a>
+        <a id="modal-download-btn" href="" download="payment_proof.jpg"
+          style="color: var(--o); font-weight: 700;">Download Image ↗</a>
+        <a id="modal-wa-btn" href="" target="_blank"
+          style="background:#25D366; color:#fff; padding:6px 14px; font-weight:700; border-radius:2px;">Chat on WhatsApp
+          ↗</a>
       </div>
     </div>
   </div>
@@ -218,4 +228,5 @@
   </div>
 
 </body>
+
 </html>
