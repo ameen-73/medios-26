@@ -244,7 +244,25 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /**
-   * Normalize and align fields for both new and legacy records
+   * Convert Google Drive URLs to direct embeddable image URLs
+   */
+  function formatImageUrl(url) {
+    if (!url) return "";
+    url = String(url).trim();
+    if (url.startsWith("data:image")) return url;
+
+    // Detect Google Drive file ID
+    const driveMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+    if (driveMatch && driveMatch[1]) {
+      const fileId = driveMatch[1];
+      return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`;
+    }
+    return url;
+  }
+
+  /**
+   * Universal Smart Column Resolver: Accurately maps Name, Campus, Class, Phone, and Proof
+   * regardless of whether sheet columns are old, new, or shifted.
    */
   function cleanRecord(r) {
     if (!r) return null;
@@ -258,64 +276,85 @@ document.addEventListener("DOMContentLoaded", () => {
       timestamp = new Date().toISOString();
     }
 
-    // Basic extraction
-    let name = r.name || r["Name"] || r["Full Name"] || r["FullName"] || r.fullName || "";
-    let campus = r.campus || r["Campus"] || r["Campus Name"] || r["Institution"] || r.institution || "";
-    let className = r.className || r["Class"] || r["Course / Class"] || r["Course/Class"] || r["Course"] || r.class || "";
-    let phone = String(r.phone || r["Phone"] || r["Phone Number"] || r.mobile || "").replace(/^'/, "").trim();
-    let paymentMethod = String(r.paymentMethod || r["Payment Method"] || r.payment || "online").toLowerCase();
-    let paid = String(r.paid || (paymentMethod === "online" ? "yes" : "no")).toLowerCase();
-    let amount = Number(r.amount || 69);
-    let paymentProof = r.paymentProof || r["Payment Proof URL"] || r["Payment Proof"] || r.proof || "";
-    let status = r.status || r["Status"] || (paymentMethod === "online" ? "Verified" : "Pending (Venue)");
+    let name = "";
+    let campus = "";
+    let className = "";
+    let phone = "";
+    let paymentMethod = "online";
+    let paid = "yes";
+    let amount = 69;
+    let paymentProof = "";
+    let status = "Verified";
 
-    // Detect shifted columns from older Google Sheets column layout:
-    // If r['Email'] contains campus text
-    if (r["Email"] && (!campus || campus.toLowerCase() === "yes" || campus.toLowerCase() === "no")) {
-      campus = r["Email"];
+    // 1. Detect if record came from old Google Sheet column headers:
+    // ["Registration ID", "Timestamp", "Full Name", "Email", "Phone", "Gender", "Date of Birth", "Institution", "Course / Class", "District", "Category", ...]
+    // In that layout:
+    // - Full Name = Name
+    // - Email = Campus Name!
+    // - Phone = Class Name! (e.g. "5" / "plustwo")
+    // - Gender = Phone Number! (e.g. "7356039673")
+    // - District = Payment Proof URL!
+    // - Category = Status!
+    const isOldGoogleSheetLayout = ("Email" in r || "Gender" in r || "District" in r);
+
+    if (isOldGoogleSheetLayout) {
+      name = r["Full Name"] || r["Name"] || r["name"] || "";
+      campus = r["Email"] || r["Campus"] || r["campus"] || r["Institution"] || "";
+      className = r["Phone"] || r["Class"] || r["class"] || r["className"] || "";
+      phone = String(r["Gender"] || r["phone"] || "").replace(/^'/, "").trim();
+      paymentProof = r["District"] || r["Payment Proof URL"] || r["paymentProof"] || "";
+      status = r["Category"] || r["Status"] || r["status"] || "Verified";
+    } else {
+      name = r.name || r["Name"] || r["Full Name"] || r.fullName || "";
+      campus = r.campus || r["Campus"] || r["Campus Name"] || r["Institution"] || "";
+      className = r.className || r["Class"] || r["Course / Class"] || r.class || "";
+      phone = String(r.phone || r["Phone"] || r["Phone Number"] || r.mobile || "").replace(/^'/, "").trim();
+      paymentProof = r.paymentProof || r["Payment Proof URL"] || r["Payment Proof"] || r.proof || "";
+      status = r.status || r["Status"] || "Verified";
     }
 
-    // If r['Gender'] contains the 10-digit phone number
-    if (r["Gender"] && /^\d{10}$/.test(String(r["Gender"]).trim())) {
-      phone = String(r["Gender"]).trim();
-      if (!className || className === "69" || className === 69) {
-        className = r["Phone"] || className;
-      }
-    }
-
-    // Search across all properties for 10-digit phone number if phone is not 10 digits
+    // 2. Intelligent Auto-Correction Fallback:
+    // If phone is not a 10-digit number, search across all fields for the 10-digit number
     if (!/^\d{10}$/.test(phone)) {
-      for (let key in r) {
-        const val = String(r[key] || "").replace(/^'/, "").trim();
+      for (let k in r) {
+        const val = String(r[k] || "").replace(/^'/, "").trim();
         if (/^[6-9]\d{9}$/.test(val) || /^\d{10}$/.test(val)) {
+          // If className currently holds the 10-digit phone, swap them
+          if (className === val) {
+            className = phone;
+          }
           phone = val;
           break;
         }
       }
     }
 
-    // If className is 69 / "69", find real class name
-    if (className === 69 || className === "69") {
-      if (r["Phone"] && !/^\d{10}$/.test(String(r["Phone"]).trim()) && String(r["Phone"]).trim() !== "Phone") {
-        className = String(r["Phone"]).trim();
+    // If className is mistakenly "69", "yes", or "online", recover the actual class
+    if (className === "69" || className === 69 || className === "yes" || className === "online") {
+      if (r["Phone"] && r["Phone"] !== "69" && r["Phone"] !== "Phone") {
+        className = r["Phone"];
       } else {
         className = "";
       }
     }
 
-    // If campus is "yes" / "no" / "online"
+    // If campus is mistakenly "yes", "no", or "online", recover actual campus
     if (campus.toLowerCase() === "yes" || campus.toLowerCase() === "no" || campus.toLowerCase() === "online") {
-      if (r["Email"] && r["Email"].toLowerCase() !== "yes" && r["Email"].toLowerCase() !== "no") {
+      if (r["Email"] && r["Email"].toLowerCase() !== "yes") {
         campus = r["Email"];
       } else {
         campus = "";
       }
     }
 
+    // Clean placeholders
     if (name === "Name" || name === "Full Name" || name === "Registration ID") name = "";
-    if (campus === "Campus" || campus === "Institution") campus = "";
-    if (className === "Class" || className === "Course / Class") className = "";
-    if (phone === "Phone" || phone === "Phone Number") phone = "";
+    if (campus === "Campus" || campus === "Institution" || campus === "Email") campus = "";
+    if (className === "Class" || className === "Course / Class" || className === "Phone") className = "";
+    if (phone === "Phone" || phone === "Phone Number" || phone === "Gender") phone = "";
+
+    paymentMethod = String(r.paymentMethod || r["Payment Method"] || "online").toLowerCase().includes("venue") ? "venue" : "online";
+    status = (status === "STATUS" || !status) ? (paymentMethod === "venue" ? "Pending (Venue)" : "Verified") : status;
 
     return {
       id: id,
@@ -324,11 +363,12 @@ document.addEventListener("DOMContentLoaded", () => {
       campus: campus,
       className: className,
       phone: phone,
-      paymentMethod: paymentMethod.includes("venue") ? "venue" : "online",
-      paid: paid,
+      paymentMethod: paymentMethod,
+      paid: paymentMethod === "online" ? "yes" : "no",
       amount: 69,
-      paymentProof: paymentProof,
-      status: (status === "STATUS" || !status) ? (paymentMethod.includes("venue") ? "Pending (Venue)" : "Verified") : status
+      paymentProof: formatImageUrl(paymentProof),
+      rawProof: paymentProof,
+      status: status
     };
   }
 
@@ -403,7 +443,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const statusBadge = `<span class="${isVerified ? 'badge-paid' : 'badge-venue'}" style="cursor:pointer;" onclick="window.toggleStatus('${escapeHtml(r.id)}')" title="Click to toggle status">${escapeHtml(r.status || (isOnline ? 'Verified' : 'Pending'))} ⟳</span>`;
 
-      // Name in bold dark black color with click to view details
+      // Name in bold black color
       const nameHtml = `
         <a href="javascript:void(0)" onclick="window.viewDetails('${escapeHtml(r.id)}')" style="color:#0c0b0b !important; font-weight:800; font-size:0.95rem; text-decoration:none; display:inline-block;">
           ${escapeHtml(r.name || 'Participant')}
@@ -413,8 +453,8 @@ document.addEventListener("DOMContentLoaded", () => {
       tr.innerHTML = `
         <td><strong style="color:#0c0b0b;">${escapeHtml(r.id)}</strong></td>
         <td>${nameHtml}</td>
-        <td style="color:#333; font-weight:500;">${escapeHtml(r.campus || '—')}</td>
-        <td style="color:#333; font-weight:600;">${escapeHtml(r.className || '—')}</td>
+        <td style="color:#222; font-weight:600;">${escapeHtml(r.campus || '—')}</td>
+        <td style="color:#222; font-weight:600;">${escapeHtml(r.className || '—')}</td>
         <td>
           <div style="display:flex; align-items:center; gap:6px;">
             ${r.phone ? `<a href="tel:${escapeHtml(r.phone)}" style="color:var(--o); font-weight:700;">${escapeHtml(r.phone)}</a>` : '<span style="color:#777;">—</span>'}
@@ -464,8 +504,11 @@ document.addEventListener("DOMContentLoaded", () => {
       ${r.paymentProof ? `
         <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: 15px;">
           <strong style="display:block; margin-bottom:8px;">Uploaded Payment Proof Screenshot:</strong>
-          <img src="${r.paymentProof}" alt="Proof" style="max-width:100%; max-height:350px; object-fit:contain; border:1px solid #444; background:#000; display:block; margin-bottom:10px;">
-          <a href="${r.paymentProof}" download="${r.id}_proof.jpg" style="color:var(--o); font-weight:700;">Download Image File ↗</a>
+          <img src="${r.paymentProof}" alt="Proof" style="max-width:100%; max-height:380px; object-fit:contain; border:1px solid #444; background:#000; display:block; margin-bottom:10px;" onerror="this.onerror=null; this.src='${r.rawProof || ''}';">
+          <div style="display:flex; gap:12px; align-items:center;">
+            <a href="${r.paymentProof}" target="_blank" download="${r.id}_proof.jpg" style="color:var(--o); font-weight:700;">Open / Download Image ↗</a>
+            ${r.rawProof && r.rawProof.startsWith('http') ? `<a href="${r.rawProof}" target="_blank" style="color:#aaa; font-size:0.85rem;">View in Google Drive ↗</a>` : ''}
+          </div>
         </div>
       ` : '<p style="color:#777; font-style:italic;">No payment screenshot uploaded (Venue payment).</p>'}
     `;
@@ -484,9 +527,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const waBtn = document.getElementById("modal-wa-btn");
 
     img.src = r.paymentProof;
+    img.onerror = function() {
+      if (r.rawProof && r.rawProof !== r.paymentProof) {
+        this.src = r.rawProof;
+      }
+    };
     download.href = r.paymentProof;
+    download.target = "_blank";
     download.download = `${r.id}_proof.jpg`;
-    info.textContent = `Participant: ${r.name || 'Participant'} · Campus: ${r.campus || '—'} · Phone: ${r.phone} (ID: ${r.id})`;
+    info.textContent = `Participant: ${r.name || 'Participant'} · Campus: ${r.campus || '—'} · Class: ${r.className || '—'} · Phone: ${r.phone} (ID: ${r.id})`;
+    
     if (waBtn && r.phone) {
       waBtn.href = `https://wa.me/91${r.phone}?text=${encodeURIComponent(`Hi ${r.name || ''}, your registration (${r.id}) for Media Conclave 2026 has been verified.`)}`;
       waBtn.style.display = "inline-block";
@@ -560,7 +610,7 @@ document.addEventListener("DOMContentLoaded", () => {
       r.paid,
       r.amount || 69,
       r.status,
-      `"${(r.paymentProof && !r.paymentProof.startsWith('data:') ? r.paymentProof : (r.paymentProof ? 'Base64 Encoded Image' : 'None')).replace(/"/g, '""')}"`
+      `"${(r.paymentProof || '').replace(/"/g, '""')}"`
     ]);
 
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
