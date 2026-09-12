@@ -219,17 +219,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Save back cleaned dataset
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(registrations));
-    localStorage.setItem("medios26_registrations", JSON.stringify(registrations));
-
     updateStats();
     renderTable();
   }
 
-  /**
-   * Filter out headers or garbage rows
-   */
   function isValidRecord(r) {
     if (!r || !r.id) return false;
     const id = String(r.id).trim().toLowerCase();
@@ -243,15 +236,12 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
-  /**
-   * Convert Google Drive URLs to direct embeddable image URLs
-   */
   function formatImageUrl(url) {
     if (!url) return "";
     url = String(url).trim();
     if (url.startsWith("data:image")) return url;
+    if (url.includes("Exception:") || url.includes("upload failed")) return "";
 
-    // Detect Google Drive file ID
     const driveMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
     if (driveMatch && driveMatch[1]) {
       const fileId = driveMatch[1];
@@ -261,99 +251,77 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /**
-   * Universal Smart Column Resolver: Accurately maps Name, Campus, Class, Phone, and Proof
-   * regardless of whether sheet columns are old, new, or shifted.
+   * Universal Smart Record Cleaner:
+   * Accurately detects and resolves swapped/shifted columns from legacy Google Sheets
    */
   function cleanRecord(r) {
     if (!r) return null;
 
-    let id = r.id || r["Registration ID"] || r["id"] || "";
+    let id = String(r.id || r["Registration ID"] || r["id"] || "").trim();
     if (typeof id === "number") id = "MC26-" + id;
-    id = String(id).trim();
 
     let timestamp = r.timestamp || r["Timestamp"] || r.createdAt || "";
     if (timestamp === "Timestamp" || !isValidDate(timestamp)) {
       timestamp = new Date().toISOString();
     }
 
-    let name = "";
-    let campus = "";
-    let className = "";
-    let phone = "";
-    let paymentMethod = "online";
-    let paid = "yes";
+    let name = r.name || r["Full Name"] || r["Name"] || r.fullName || "";
+    let campus = r.campus || r["Campus"] || r["Campus Name"] || r["Institution"] || "";
+    let className = r.className || r["Class"] || r["Course / Class"] || r.class || "";
+    let phone = String(r.phone || r["Phone"] || r["Phone Number"] || r.mobile || "").replace(/^'/, "").trim();
+    let paymentMethod = (r.paymentMethod || r["Payment Method"] || "online").toLowerCase();
+    let paid = (r.paid || (paymentMethod === "online" ? "yes" : "no")).toLowerCase();
     let amount = 69;
-    let paymentProof = "";
-    let status = "Verified";
+    let paymentProof = r.paymentProof || r["Payment Proof URL"] || r["Payment Proof"] || r.proof || "";
+    let status = r.status || r["Status"] || "Verified";
 
-    // 1. Detect if record came from old Google Sheet column headers:
-    // ["Registration ID", "Timestamp", "Full Name", "Email", "Phone", "Gender", "Date of Birth", "Institution", "Course / Class", "District", "Category", ...]
-    // In that layout:
-    // - Full Name = Name
-    // - Email = Campus Name!
-    // - Phone = Class Name! (e.g. "5" / "plustwo")
-    // - Gender = Phone Number! (e.g. "7356039673")
-    // - District = Payment Proof URL!
-    // - Category = Status!
-    const isOldGoogleSheetLayout = ("Email" in r || "Gender" in r || "District" in r);
+    // 1. Detect if shifted from legacy Google Sheet (where className was 69, campus was "yes", phone was class name)
+    const isShifted = (className === 69 || className === "69" || campus.toLowerCase() === "yes" || campus.toLowerCase() === "online");
 
-    if (isOldGoogleSheetLayout) {
-      name = r["Full Name"] || r["Name"] || r["name"] || "";
-      campus = r["Email"] || r["Campus"] || r["campus"] || r["Institution"] || "";
-      className = r["Phone"] || r["Class"] || r["class"] || r["className"] || "";
-      phone = String(r["Gender"] || r["phone"] || "").replace(/^'/, "").trim();
-      paymentProof = r["District"] || r["Payment Proof URL"] || r["paymentProof"] || "";
-      status = r["Category"] || r["Status"] || r["status"] || "Verified";
-    } else {
-      name = r.name || r["Name"] || r["Full Name"] || r.fullName || "";
-      campus = r.campus || r["Campus"] || r["Campus Name"] || r["Institution"] || "";
-      className = r.className || r["Class"] || r["Course / Class"] || r.class || "";
-      phone = String(r.phone || r["Phone"] || r["Phone Number"] || r.mobile || "").replace(/^'/, "").trim();
-      paymentProof = r.paymentProof || r["Payment Proof URL"] || r["Payment Proof"] || r.proof || "";
-      status = r.status || r["Status"] || "Verified";
+    if (isShifted) {
+      // If phone holds "plustwo" or "5", that's the real class
+      if (!/^\d{10}$/.test(phone)) {
+        className = phone;
+        phone = "";
+      } else {
+        className = "";
+      }
+      campus = "";
     }
 
-    // 2. Intelligent Auto-Correction Fallback:
-    // If phone is not a 10-digit number, search across all fields for the 10-digit number
+    // 2. Cross-reference with LocalStorage data to restore true values (Phone, Campus, Screenshot)
+    try {
+      const localDataList = JSON.parse(localStorage.getItem(STORAGE_KEY) || localStorage.getItem("medios26_registrations") || "[]");
+      const localMatch = localDataList.find(item => item && String(item.id).trim() === id);
+      if (localMatch) {
+        if (localMatch.name) name = localMatch.name;
+        if (localMatch.campus && localMatch.campus.toLowerCase() !== "yes") campus = localMatch.campus;
+        if (localMatch.className && localMatch.className !== 69 && localMatch.className !== "69") className = localMatch.className;
+        if (localMatch.phone && /^\d{10}$/.test(localMatch.phone)) phone = localMatch.phone;
+        if (localMatch.paymentProof && localMatch.paymentProof.startsWith("data:image")) paymentProof = localMatch.paymentProof;
+      }
+    } catch (e) {
+      console.warn("Local storage cross-reference notice:", e);
+    }
+
+    // 3. Fallback phone finder across any object key if still missing
     if (!/^\d{10}$/.test(phone)) {
       for (let k in r) {
         const val = String(r[k] || "").replace(/^'/, "").trim();
         if (/^[6-9]\d{9}$/.test(val) || /^\d{10}$/.test(val)) {
-          // If className currently holds the 10-digit phone, swap them
-          if (className === val) {
-            className = phone;
-          }
           phone = val;
           break;
         }
       }
     }
 
-    // If className is mistakenly "69", "yes", or "online", recover the actual class
-    if (className === "69" || className === 69 || className === "yes" || className === "online") {
-      if (r["Phone"] && r["Phone"] !== "69" && r["Phone"] !== "Phone") {
-        className = r["Phone"];
-      } else {
-        className = "";
-      }
-    }
-
-    // If campus is mistakenly "yes", "no", or "online", recover actual campus
-    if (campus.toLowerCase() === "yes" || campus.toLowerCase() === "no" || campus.toLowerCase() === "online") {
-      if (r["Email"] && r["Email"].toLowerCase() !== "yes") {
-        campus = r["Email"];
-      } else {
-        campus = "";
-      }
-    }
-
     // Clean placeholders
     if (name === "Name" || name === "Full Name" || name === "Registration ID") name = "";
-    if (campus === "Campus" || campus === "Institution" || campus === "Email") campus = "";
-    if (className === "Class" || className === "Course / Class" || className === "Phone") className = "";
-    if (phone === "Phone" || phone === "Phone Number" || phone === "Gender") phone = "";
+    if (campus === "Campus" || campus === "Institution" || campus === "yes" || campus === "online") campus = "";
+    if (className === "Class" || className === "Course / Class" || className === "69" || className === 69) className = "";
+    if (phone === "Phone" || phone === "Phone Number" || phone === "5" || phone === "plustwo") phone = "";
 
-    paymentMethod = String(r.paymentMethod || r["Payment Method"] || "online").toLowerCase().includes("venue") ? "venue" : "online";
+    paymentMethod = paymentMethod.includes("venue") ? "venue" : "online";
     status = (status === "STATUS" || !status) ? (paymentMethod === "venue" ? "Pending (Venue)" : "Verified") : status;
 
     return {
@@ -364,7 +332,7 @@ document.addEventListener("DOMContentLoaded", () => {
       className: className,
       phone: phone,
       paymentMethod: paymentMethod,
-      paid: paymentMethod === "online" ? "yes" : "no",
+      paid: paid,
       amount: 69,
       paymentProof: formatImageUrl(paymentProof),
       rawProof: paymentProof,
@@ -437,13 +405,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const isOnline = (r.paymentMethod || "").toLowerCase() === "online" || r.paid === "yes";
       const isVerified = (r.status || "").toLowerCase().includes("verified") || (r.status || "").toLowerCase().includes("confirmed");
 
-      const proofHtml = r.paymentProof
+      const hasProof = r.paymentProof && (r.paymentProof.startsWith("data:image") || r.paymentProof.startsWith("http"));
+      const proofHtml = hasProof
         ? `<button class="btn-proof-thumb" onclick="window.viewProof('${escapeHtml(r.id)}')">📷 View</button>`
         : `<span style="color:#aaa; font-size:0.75rem;">None</span>`;
 
       const statusBadge = `<span class="${isVerified ? 'badge-paid' : 'badge-venue'}" style="cursor:pointer;" onclick="window.toggleStatus('${escapeHtml(r.id)}')" title="Click to toggle status">${escapeHtml(r.status || (isOnline ? 'Verified' : 'Pending'))} ⟳</span>`;
 
-      // Name in bold black color
+      // Name in solid black with bold weight
       const nameHtml = `
         <a href="javascript:void(0)" onclick="window.viewDetails('${escapeHtml(r.id)}')" style="color:#0c0b0b !important; font-weight:800; font-size:0.95rem; text-decoration:none; display:inline-block;">
           ${escapeHtml(r.name || 'Participant')}
@@ -483,6 +452,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const modal = document.getElementById("details-modal");
     const body = document.getElementById("details-modal-body");
     const isOnline = (r.paymentMethod || "").toLowerCase() === "online" || r.paid === "yes";
+    const hasProof = r.paymentProof && (r.paymentProof.startsWith("data:image") || r.paymentProof.startsWith("http"));
 
     body.innerHTML = `
       <div style="display:grid; grid-template-columns: 140px 1fr; gap: 8px 16px; margin-bottom: 20px;">
@@ -501,16 +471,15 @@ document.addEventListener("DOMContentLoaded", () => {
         <strong style="color:#aaa;">Registration Date:</strong> <span>${formatDate(r.timestamp)}</span>
       </div>
 
-      ${r.paymentProof ? `
+      ${hasProof ? `
         <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: 15px;">
           <strong style="display:block; margin-bottom:8px;">Uploaded Payment Proof Screenshot:</strong>
-          <img src="${r.paymentProof}" alt="Proof" style="max-width:100%; max-height:380px; object-fit:contain; border:1px solid #444; background:#000; display:block; margin-bottom:10px;" onerror="this.onerror=null; this.src='${r.rawProof || ''}';">
+          <img src="${r.paymentProof}" alt="Proof" style="max-width:100%; max-height:380px; object-fit:contain; border:1px solid #444; background:#000; display:block; margin-bottom:10px;" onerror="this.style.display='none';">
           <div style="display:flex; gap:12px; align-items:center;">
             <a href="${r.paymentProof}" target="_blank" download="${r.id}_proof.jpg" style="color:var(--o); font-weight:700;">Open / Download Image ↗</a>
-            ${r.rawProof && r.rawProof.startsWith('http') ? `<a href="${r.rawProof}" target="_blank" style="color:#aaa; font-size:0.85rem;">View in Google Drive ↗</a>` : ''}
           </div>
         </div>
-      ` : '<p style="color:#777; font-style:italic;">No payment screenshot uploaded (Venue payment).</p>'}
+      ` : '<p style="color:#777; font-style:italic;">No payment screenshot uploaded (Venue payment or pending proof).</p>'}
     `;
 
     modal.style.display = "flex";
@@ -527,15 +496,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const waBtn = document.getElementById("modal-wa-btn");
 
     img.src = r.paymentProof;
-    img.onerror = function() {
-      if (r.rawProof && r.rawProof !== r.paymentProof) {
-        this.src = r.rawProof;
-      }
-    };
     download.href = r.paymentProof;
     download.target = "_blank";
     download.download = `${r.id}_proof.jpg`;
-    info.textContent = `Participant: ${r.name || 'Participant'} · Campus: ${r.campus || '—'} · Class: ${r.className || '—'} · Phone: ${r.phone} (ID: ${r.id})`;
+    info.textContent = `Participant: ${r.name || 'Participant'} · Campus: ${r.campus || '—'} · Class: ${r.className || '—'} · Phone: ${r.phone || '—'} (ID: ${r.id})`;
     
     if (waBtn && r.phone) {
       waBtn.href = `https://wa.me/91${r.phone}?text=${encodeURIComponent(`Hi ${r.name || ''}, your registration (${r.id}) for Media Conclave 2026 has been verified.`)}`;
