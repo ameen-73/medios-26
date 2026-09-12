@@ -46,8 +46,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (proofUpload) proofUpload.style.display = "block";
         if (venueStep) venueStep.style.display = "none";
         if (paidCheckbox) paidCheckbox.required = true;
-        if (proofInput) proofInput.required = true;
-        if (formStatus) formStatus.textContent = "Your details and payment proof will be stored for the organizers.";
+        if (proofInput) proofInput.required = false;
+        if (formStatus) formStatus.textContent = "Upload your payment screenshot or share it to WhatsApp (+91 7356217409).";
       } else {
         if (onlineStep) onlineStep.style.display = "none";
         if (proofUpload) proofUpload.style.display = "none";
@@ -58,6 +58,24 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+
+  // Dynamic WhatsApp Screenshot Share Button
+  const shareProofWaBtn = document.getElementById("share-proof-wa-btn");
+  if (shareProofWaBtn) {
+    shareProofWaBtn.addEventListener("click", (e) => {
+      const waNumber = window.MC_CONFIG?.WHATSAPP_NUMBER || "7356217409";
+      const name = (document.getElementById("name")?.value || "").trim();
+      const campus = (document.getElementById("campus")?.value || "").trim();
+      const phone = (document.getElementById("phone")?.value || "").trim();
+      
+      let text = `Hi, sharing my ₹69 payment screenshot for Media Conclave 2026 registration.`;
+      if (name) {
+        text = `*MEDIA CONCLAVE 2026 — PAYMENT PROOF*\nName: ${name}${campus ? `\nCampus: ${campus}` : ""}${phone ? `\nPhone: ${phone}` : ""}\nPayment: UPI ₹69\n\n(Attaching payment screenshot below)`;
+      }
+      
+      shareProofWaBtn.href = `https://wa.me/91${waNumber}?text=${encodeURIComponent(text)}`;
+    });
+  }
 
   // Handle proof image upload & preview
   if (proofInput) {

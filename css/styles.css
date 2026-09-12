@@ -562,6 +562,85 @@ button, input, textarea, select {
   word-break: break-all;
 }
 
+/* Proof WhatsApp Share Option */
+.proof-wa-share {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #ded7cf;
+}
+
+.proof-wa-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.proof-wa-divider::before,
+.proof-wa-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #cbc5bf;
+}
+
+.proof-wa-divider span {
+  padding: 0 10px;
+  color: #7a736c;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.proof-wa-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  color: #17643b;
+  border: 1.5px solid #25D366;
+  padding: 10px 14px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.88rem;
+  border-radius: 2px;
+  box-shadow: 2px 2px 0 #25D366;
+  transition: all 0.2s ease;
+}
+
+.proof-wa-btn:hover {
+  background: #25D366;
+  color: #ffffff;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 #128C7E;
+}
+
+.proof-wa-btn .wa-btn-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.proof-wa-btn svg {
+  flex-shrink: 0;
+  fill: currentColor;
+}
+
+.proof-wa-btn b {
+  font-size: 1.1rem;
+}
+
+.proof-wa-hint {
+  color: #635d56;
+  font-size: 0.78rem;
+  margin-top: 6px;
+  margin-bottom: 0;
+  line-height: 1.4;
+}
+
+.proof-wa-hint strong {
+  color: var(--k);
+}
+
 /* Pay at Venue Note */
 .venue-note {
   background: #f7f4ee;
