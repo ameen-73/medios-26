@@ -8,7 +8,6 @@
  * 1. Open your Google Spreadsheet (Extensions > Apps Script).
  * 2. Replace all code in Code.gs with this file content.
  * 3. Click "Deploy" > "Manage deployments" > Edit > "New version" > Deploy.
- *    (Or "Deploy" > "New deployment" > Web App > Execute as: Me > Access: Anyone).
  */
 
 const SHEET_NAME = "Registrations";
@@ -168,7 +167,7 @@ function updateStatusById(sheet, id, newStatus) {
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   let statusColIndex = headers.findIndex(h => String(h).toLowerCase().includes("status"));
-  if (statusColIndex === -1) statusColIndex = 10; // default column 11 (0-indexed 10)
+  if (statusColIndex === -1) statusColIndex = 10;
 
   for (let i = 1; i < data.length; i++) {
     const rowId = String(data[i][0]).trim();
@@ -208,13 +207,20 @@ function saveBase64ImageToDrive(base64Data, filename) {
 }
 
 /**
- * Retrieve or initialize the Registrations sheet
+ * Retrieve or initialize the Registrations sheet and ensure canonical header row
  */
 function getOrCreateSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.getActiveSheet();
+  }
+  
+  // Verify or format row 1 headers
+  const data = sheet.getDataRange().getValues();
+  if (data.length === 0) {
+    sheet.appendRow(HEADERS);
+    sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight("bold").setBackground("#f0521f").setFontColor("#ffffff");
   }
   return sheet;
 }
@@ -235,7 +241,6 @@ function getAllRegistrations(sheet) {
     const row = rows[i];
     if (!row || row.length === 0 || !row[0]) continue;
 
-    // Skip if row is accidentally header repeat
     const idVal = String(row[0]).trim();
     if (idVal.toLowerCase() === "registration id" || idVal.toLowerCase() === "reg id") {
       continue;
@@ -250,28 +255,33 @@ function getAllRegistrations(sheet) {
       obj[h] = val;
     });
 
-    // Flexible column resolution supporting both old & new sheets
     const regId = idVal;
     const timestamp = obj["timestamp"] || row[1] || new Date().toISOString();
     
-    // Resolve Name
-    const name = obj["name"] || obj["full name"] || obj["fullname"] || row[2] || "";
-    
-    // Resolve Campus / Institution
-    const campus = obj["campus"] || obj["institution"] || obj["campus name"] || obj["college"] || (rawHeaders.includes("institution") ? obj["institution"] : (row[3] || row[7] || ""));
-    
-    // Resolve Class
-    const className = obj["class"] || obj["course / class"] || obj["course/class"] || obj["course"] || (rawHeaders.includes("course / class") ? obj["course / class"] : (row[4] || row[8] || ""));
-    
-    // Resolve Phone
-    let phone = String(obj["phone"] || obj["phone number"] || obj["mobile"] || (rawHeaders.includes("phone") ? obj["phone"] : row[5]) || "").replace(/^'/, "").trim();
-    
-    // Resolve Payment Method & Status
-    const paymentMethod = String(obj["payment method"] || obj["payment"] || (obj["category"] ? "online" : "online")).toLowerCase();
-    const paid = String(obj["paid"] || "yes").toLowerCase();
-    const amount = Number(obj["amount"] || 69);
-    const proof = obj["payment proof url"] || obj["payment proof"] || obj["proof"] || (row.length > 9 ? row[9] : "") || "";
-    const status = obj["status"] || (paymentMethod === "online" ? "Verified" : "Pending (Venue)");
+    // Check if row matches canonical 11-column order:
+    // [ID, Timestamp, Name, Campus, Class, Phone, PaymentMethod, Paid, Amount, Proof, Status]
+    let name = row[2] || obj["name"] || obj["full name"] || obj["fullname"] || "";
+    let campus = row[3] || obj["campus"] || obj["institution"] || obj["campus name"] || "";
+    let className = row[4] || obj["class"] || obj["course / class"] || obj["course/class"] || "";
+    let phone = String(row[5] || obj["phone"] || obj["phone number"] || "").replace(/^'/, "").trim();
+    let paymentMethod = String(row[6] || obj["payment method"] || obj["payment"] || "online").toLowerCase();
+    let paid = String(row[7] || obj["paid"] || "yes").toLowerCase();
+    let amount = Number(row[8] || obj["amount"] || 69);
+    let proof = String(row[9] || obj["payment proof url"] || obj["payment proof"] || "");
+    let status = String(row[10] || obj["status"] || "Verified");
+
+    // Auto-fix if campus is "yes" / "no" / "online"
+    if (campus.toLowerCase() === "yes" || campus.toLowerCase() === "online") {
+      campus = obj["email"] || "";
+    }
+    if (className === 69 || className === "69") {
+      className = String(obj["phone"] || row[4] || "");
+    }
+    if (!/^\d{10}$/.test(phone)) {
+      if (/^\d{10}$/.test(String(obj["gender"]).trim())) {
+        phone = String(obj["gender"]).trim();
+      }
+    }
 
     list.push({
       id: regId,
@@ -280,9 +290,9 @@ function getAllRegistrations(sheet) {
       campus: campus,
       className: className,
       phone: phone,
-      paymentMethod: paymentMethod,
+      paymentMethod: paymentMethod.includes("venue") ? "venue" : "online",
       paid: paid,
-      amount: amount,
+      amount: amount || 69,
       paymentProof: proof,
       status: status
     });

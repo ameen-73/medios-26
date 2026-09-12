@@ -203,7 +203,6 @@ document.addEventListener("DOMContentLoaded", () => {
             .map(cleanRecord)
             .filter(r => r && isValidRecord(r) && !deletedIds.has(String(r.id).trim()));
 
-          const localIdSet = new Set(localData.map(r => r.id));
           const merged = [...remoteRecords];
 
           // Include local-only unsynced records
@@ -259,46 +258,64 @@ document.addEventListener("DOMContentLoaded", () => {
       timestamp = new Date().toISOString();
     }
 
-    // Find Name
+    // Basic extraction
     let name = r.name || r["Name"] || r["Full Name"] || r["FullName"] || r.fullName || "";
-    if (name === "Name" || name === "Full Name") name = "";
-
-    // Find Campus
     let campus = r.campus || r["Campus"] || r["Campus Name"] || r["Institution"] || r.institution || "";
-    if (campus === "Campus" || campus === "Institution") campus = "";
-
-    // Find Class
     let className = r.className || r["Class"] || r["Course / Class"] || r["Course/Class"] || r["Course"] || r.class || "";
-    if (className === "Class" || className === "Course / Class") className = "";
-
-    // Find Phone
     let phone = String(r.phone || r["Phone"] || r["Phone Number"] || r.mobile || "").replace(/^'/, "").trim();
-    if (phone === "Phone" || phone === "Phone Number") phone = "";
-
-    // If phone and class/name got swapped in older schema, auto-correct:
-    // e.g. If class contains a 10-digit number and phone is just a single digit like "5"
-    if (phone.length < 5 && /^\d{10}$/.test(className)) {
-      const temp = phone;
-      phone = className;
-      className = temp;
-    } else if (phone.length < 5 && /^\d{10}$/.test(campus)) {
-      const temp = phone;
-      phone = campus;
-      campus = temp;
-    }
-
     let paymentMethod = String(r.paymentMethod || r["Payment Method"] || r.payment || "online").toLowerCase();
-    if (paymentMethod.includes("venue")) paymentMethod = "venue";
-    else paymentMethod = "online";
-
     let paid = String(r.paid || (paymentMethod === "online" ? "yes" : "no")).toLowerCase();
     let amount = Number(r.amount || 69);
     let paymentProof = r.paymentProof || r["Payment Proof URL"] || r["Payment Proof"] || r.proof || "";
-    
     let status = r.status || r["Status"] || (paymentMethod === "online" ? "Verified" : "Pending (Venue)");
-    if (status === "STATUS" || status === "Status") {
-      status = paymentMethod === "online" ? "Verified" : "Pending (Venue)";
+
+    // Detect shifted columns from older Google Sheets column layout:
+    // If r['Email'] contains campus text
+    if (r["Email"] && (!campus || campus.toLowerCase() === "yes" || campus.toLowerCase() === "no")) {
+      campus = r["Email"];
     }
+
+    // If r['Gender'] contains the 10-digit phone number
+    if (r["Gender"] && /^\d{10}$/.test(String(r["Gender"]).trim())) {
+      phone = String(r["Gender"]).trim();
+      if (!className || className === "69" || className === 69) {
+        className = r["Phone"] || className;
+      }
+    }
+
+    // Search across all properties for 10-digit phone number if phone is not 10 digits
+    if (!/^\d{10}$/.test(phone)) {
+      for (let key in r) {
+        const val = String(r[key] || "").replace(/^'/, "").trim();
+        if (/^[6-9]\d{9}$/.test(val) || /^\d{10}$/.test(val)) {
+          phone = val;
+          break;
+        }
+      }
+    }
+
+    // If className is 69 / "69", find real class name
+    if (className === 69 || className === "69") {
+      if (r["Phone"] && !/^\d{10}$/.test(String(r["Phone"]).trim()) && String(r["Phone"]).trim() !== "Phone") {
+        className = String(r["Phone"]).trim();
+      } else {
+        className = "";
+      }
+    }
+
+    // If campus is "yes" / "no" / "online"
+    if (campus.toLowerCase() === "yes" || campus.toLowerCase() === "no" || campus.toLowerCase() === "online") {
+      if (r["Email"] && r["Email"].toLowerCase() !== "yes" && r["Email"].toLowerCase() !== "no") {
+        campus = r["Email"];
+      } else {
+        campus = "";
+      }
+    }
+
+    if (name === "Name" || name === "Full Name" || name === "Registration ID") name = "";
+    if (campus === "Campus" || campus === "Institution") campus = "";
+    if (className === "Class" || className === "Course / Class") className = "";
+    if (phone === "Phone" || phone === "Phone Number") phone = "";
 
     return {
       id: id,
@@ -307,11 +324,11 @@ document.addEventListener("DOMContentLoaded", () => {
       campus: campus,
       className: className,
       phone: phone,
-      paymentMethod: paymentMethod,
+      paymentMethod: paymentMethod.includes("venue") ? "venue" : "online",
       paid: paid,
-      amount: amount,
+      amount: 69,
       paymentProof: paymentProof,
-      status: status
+      status: (status === "STATUS" || !status) ? (paymentMethod.includes("venue") ? "Pending (Venue)" : "Verified") : status
     };
   }
 
@@ -386,25 +403,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const statusBadge = `<span class="${isVerified ? 'badge-paid' : 'badge-venue'}" style="cursor:pointer;" onclick="window.toggleStatus('${escapeHtml(r.id)}')" title="Click to toggle status">${escapeHtml(r.status || (isOnline ? 'Verified' : 'Pending'))} ⟳</span>`;
 
+      // Name in bold dark black color with click to view details
+      const nameHtml = `
+        <a href="javascript:void(0)" onclick="window.viewDetails('${escapeHtml(r.id)}')" style="color:#0c0b0b !important; font-weight:800; font-size:0.95rem; text-decoration:none; display:inline-block;">
+          ${escapeHtml(r.name || 'Participant')}
+        </a>
+      `;
+
       tr.innerHTML = `
-        <td><strong>${escapeHtml(r.id)}</strong></td>
-        <td>
-          <a href="javascript:void(0)" onclick="window.viewDetails('${escapeHtml(r.id)}')" style="color:#fff; font-weight:700; text-decoration:underline;">
-            ${escapeHtml(r.name || 'Participant')}
-          </a>
-        </td>
-        <td>${escapeHtml(r.campus || '—')}</td>
-        <td>${escapeHtml(r.className || '—')}</td>
+        <td><strong style="color:#0c0b0b;">${escapeHtml(r.id)}</strong></td>
+        <td>${nameHtml}</td>
+        <td style="color:#333; font-weight:500;">${escapeHtml(r.campus || '—')}</td>
+        <td style="color:#333; font-weight:600;">${escapeHtml(r.className || '—')}</td>
         <td>
           <div style="display:flex; align-items:center; gap:6px;">
-            ${r.phone ? `<a href="tel:${escapeHtml(r.phone)}" style="color:var(--o); font-weight:600;">${escapeHtml(r.phone)}</a>` : '<span style="color:#777;">—</span>'}
+            ${r.phone ? `<a href="tel:${escapeHtml(r.phone)}" style="color:var(--o); font-weight:700;">${escapeHtml(r.phone)}</a>` : '<span style="color:#777;">—</span>'}
             ${r.phone ? `<a href="https://wa.me/91${escapeHtml(r.phone)}" target="_blank" title="Chat on WhatsApp" style="color:#25D366; font-size:0.9rem;">💬</a>` : ''}
           </div>
         </td>
         <td><span class="${isOnline ? 'badge-paid' : 'badge-venue'}">${isOnline ? 'ONLINE (₹69)' : 'VENUE (₹69)'}</span></td>
         <td>${proofHtml}</td>
         <td>${statusBadge}</td>
-        <td style="color:#888; font-size:0.75rem;">${formatDate(r.timestamp)}</td>
+        <td style="color:#777; font-size:0.75rem;">${formatDate(r.timestamp)}</td>
         <td>
           <div style="display:flex; gap:6px; align-items:center;">
             <button class="btn-proof-thumb" onclick="window.viewDetails('${escapeHtml(r.id)}')">👁 Details</button>
@@ -427,9 +447,9 @@ document.addEventListener("DOMContentLoaded", () => {
     body.innerHTML = `
       <div style="display:grid; grid-template-columns: 140px 1fr; gap: 8px 16px; margin-bottom: 20px;">
         <strong style="color:#aaa;">Registration ID:</strong> <span><b style="color:var(--y);">${escapeHtml(r.id)}</b></span>
-        <strong style="color:#aaa;">Full Name:</strong> <span><strong>${escapeHtml(r.name || '—')}</strong></span>
-        <strong style="color:#aaa;">Campus / College:</strong> <span>${escapeHtml(r.campus || '—')}</span>
-        <strong style="color:#aaa;">Class / Course:</strong> <span>${escapeHtml(r.className || '—')}</span>
+        <strong style="color:#aaa;">Full Name:</strong> <span><strong style="color:#fff; font-size:1.1rem;">${escapeHtml(r.name || '—')}</strong></span>
+        <strong style="color:#aaa;">Campus / College:</strong> <span><b style="color:#fff;">${escapeHtml(r.campus || '—')}</b></span>
+        <strong style="color:#aaa;">Class / Course:</strong> <span><b style="color:#fff;">${escapeHtml(r.className || '—')}</b></span>
         <strong style="color:#aaa;">Phone Number:</strong> 
         <span>
           ${r.phone ? `<a href="tel:${escapeHtml(r.phone)}" style="color:var(--o); font-weight:700;">${escapeHtml(r.phone)}</a>` : '—'}
@@ -509,7 +529,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 3. Send remote delete command to Google Apps Script
     if (window.MC_CONFIG?.API_BASE && !window.MC_CONFIG.API_BASE.includes("AKfycbx...")) {
-      // Fire GET or POST delete request
       fetch(`${window.MC_CONFIG.API_BASE}?action=deleteRegistration&id=${encodeURIComponent(id)}`, {
         mode: "no-cors"
       }).catch(err => console.warn("Remote delete warning:", err));
