@@ -5,43 +5,39 @@
  * ============================================================
  * 
  * SETUP INSTRUCTIONS:
- * 1. Create a new Google Spreadsheet (e.g. "Media Conclave 2026 Registrations").
+ * 1. Create a new Google Spreadsheet (e.g., "Media Conclave 2026 Registrations").
  * 2. Go to Extensions > Apps Script.
  * 3. Replace all code in Code.gs with this file content.
  * 4. Click "Deploy" > "New deployment".
  * 5. Select type: "Web app".
  * 6. Set Description: "Media Conclave 2026 API".
  * 7. Execute as: "Me" (your Google account).
- * 8. Who has access: "Anyone" (allows website to submit registrations).
+ * 8. Who has access: "Anyone" (allows website submissions).
  * 9. Click "Deploy", authorize permissions, and copy the Web App URL.
  * 10. Paste the Web App URL into window.MC_CONFIG.API_BASE in js/config.js.
  */
 
 const SHEET_NAME = "Registrations";
+const DRIVE_FOLDER_NAME = "Media_Conclave_2026_Payment_Proofs";
 const ADMIN_USERNAME = "medios'26";
-const ADMIN_PASSWORD = "med@231"; // Updated admin password
+const ADMIN_PASSWORD = "med@231";
 
 const HEADERS = [
   "Registration ID",
   "Timestamp",
-  "Full Name",
-  "Email",
+  "Name",
+  "Campus",
+  "Class",
   "Phone",
-  "Gender",
-  "Date of Birth",
-  "Institution",
-  "Course / Class",
-  "District",
-  "Category",
-  "Competition",
-  "Accommodation",
-  "Food Preference",
-  "Message",
+  "Payment Method",
+  "Paid",
+  "Amount",
+  "Payment Proof URL",
   "Status"
 ];
 
 /**
- * Handle HTTP GET requests (Fetch registrations, stats, single record)
+ * Handle HTTP GET requests
  */
 function doGet(e) {
   try {
@@ -51,16 +47,6 @@ function doGet(e) {
     if (action === "getRegistrations") {
       const data = getAllRegistrations(sheet);
       return jsonResponse({ status: "success", data: data });
-    }
-
-    if (action === "getRegistrationById") {
-      const id = e.parameter.id;
-      const record = getRegistrationById(sheet, id);
-      if (record) {
-        return jsonResponse({ status: "success", data: record });
-      } else {
-        return jsonResponse({ status: "error", message: "Registration not found" });
-      }
     }
 
     if (action === "getStats") {
@@ -75,13 +61,17 @@ function doGet(e) {
 }
 
 /**
- * Handle HTTP POST requests (Create, update, delete registrations)
+ * Handle HTTP POST requests
  */
 function doPost(e) {
   try {
     let payload = {};
     if (e.postData && e.postData.contents) {
-      payload = JSON.parse(e.postData.contents);
+      try {
+        payload = JSON.parse(e.postData.contents);
+      } catch (parseErr) {
+        payload = e.parameter;
+      }
     } else {
       payload = e.parameter;
     }
@@ -91,215 +81,142 @@ function doPost(e) {
 
     if (action === "createRegistration") {
       const data = payload.data || payload;
-      const newId = data.id || ("MC2026-" + Math.floor(1000 + Math.random() * 9000));
+      const newId = data.id || ("MC26-" + Math.floor(1000 + Math.random() * 9000));
       const timestamp = data.timestamp || new Date().toISOString();
+
+      let proofUrl = "";
+      if (data.paymentProof && data.paymentProof.startsWith("data:image")) {
+        proofUrl = saveBase64ImageToDrive(data.paymentProof, `${newId}_${data.name || 'proof'}`);
+      } else if (data.paymentProof) {
+        proofUrl = data.paymentProof;
+      }
 
       const row = [
         newId,
         timestamp,
-        data.fullName || "",
-        data.email || "",
-        data.phone || "",
-        data.gender || "",
-        data.dob || "",
-        data.institution || "",
-        data.course || "",
-        data.district || "",
-        data.category || "",
-        data.competition || "",
-        data.accommodation || "No",
-        data.food || "",
-        data.message || "",
-        data.status || "Confirmed"
+        data.name || "",
+        data.campus || "",
+        data.className || "",
+        data.phone ? "'" + data.phone : "",
+        data.paymentMethod || "online",
+        data.paid || "yes",
+        data.amount || 69,
+        proofUrl,
+        data.status || (data.paymentMethod === "online" ? "Verified" : "Pending (Venue)")
       ];
 
       sheet.appendRow(row);
+
       return jsonResponse({
         status: "success",
         message: "Registration created successfully",
-        id: newId
+        id: newId,
+        proofUrl: proofUrl
       });
     }
 
-    if (action === "updateRegistration") {
-      const data = payload.data;
-      const updated = updateRegistration(sheet, data);
-      if (updated) {
-        return jsonResponse({ status: "success", message: "Registration updated" });
-      } else {
-        return jsonResponse({ status: "error", message: "Registration not found" });
-      }
-    }
-
-    if (action === "deleteRegistration") {
-      const id = payload.id;
-      const deleted = deleteRegistrationById(sheet, id);
-      if (deleted) {
-        return jsonResponse({ status: "success", message: "Registration deleted" });
-      } else {
-        return jsonResponse({ status: "error", message: "Registration not found" });
-      }
-    }
-
-    return jsonResponse({ status: "error", message: "Unknown action" });
+    return jsonResponse({ status: "error", message: "Invalid action" });
   } catch (error) {
     return jsonResponse({ status: "error", message: error.toString() });
   }
 }
 
 /**
- * Ensure sheet exists and has proper headers
+ * Save Base64 image to Google Drive folder and return viewable URL
+ */
+function saveBase64ImageToDrive(base64Data, filename) {
+  try {
+    const splitData = base64Data.split(",");
+    const contentType = splitData[0].match(/:(.*?);/)[1];
+    const byteCharacters = Utilities.base64Decode(splitData[1]);
+    const blob = Utilities.newBlob(byteCharacters, contentType, filename);
+
+    let folder;
+    const folders = DriveApp.getFoldersByName(DRIVE_FOLDER_NAME);
+    if (folders.hasNext()) {
+      folder = folders.next();
+    } else {
+      folder = DriveApp.createFolder(DRIVE_FOLDER_NAME);
+      folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    }
+
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return file.getUrl();
+  } catch (err) {
+    return "Base64 upload failed: " + err.toString();
+  }
+}
+
+/**
+ * Retrieve or initialize the Registrations sheet
  */
 function getOrCreateSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAME);
-  
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
     sheet.appendRow(HEADERS);
-    // Format header row
-    const headerRange = sheet.getRange(1, 1, 1, HEADERS.length);
-    headerRange.setBackground("#0b0a09");
-    headerRange.setFontColor("#f4531e");
-    headerRange.setFontWeight("bold");
-    sheet.setFrozenRows(1);
-  } else if (sheet.getLastRow() === 0) {
-    sheet.appendRow(HEADERS);
-    const headerRange = sheet.getRange(1, 1, 1, HEADERS.length);
-    headerRange.setBackground("#0b0a09");
-    headerRange.setFontColor("#f4531e");
-    headerRange.setFontWeight("bold");
+    sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight("bold").setBackground("#f0521f").setFontColor("#ffffff");
     sheet.setFrozenRows(1);
   }
-  
   return sheet;
 }
 
 /**
- * Get all registrations as JSON objects
+ * Retrieve all registrations formatted as objects
  */
 function getAllRegistrations(sheet) {
-  const values = sheet.getDataRange().getValues();
-  if (values.length <= 1) return [];
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
 
-  const results = [];
-  for (let i = 1; i < values.length; i++) {
-    const row = values[i];
-    results.push({
-      id: row[0],
-      timestamp: row[1],
-      fullName: row[2],
-      email: row[3],
-      phone: row[4],
-      gender: row[5],
-      dob: row[6],
-      institution: row[7],
-      course: row[8],
-      district: row[9],
-      category: row[10],
-      competition: row[11],
-      accommodation: row[12],
-      food: row[13],
-      message: row[14],
-      status: row[15]
+  const headers = data[0];
+  const rows = data.slice(1);
+
+  return rows.map((row) => {
+    let obj = {};
+    headers.forEach((h, index) => {
+      let val = row[index];
+      if (val instanceof Date) {
+        val = val.toISOString();
+      }
+      obj[h] = val;
     });
-  }
-  return results.reverse(); // Most recent first
+    return {
+      id: obj["Registration ID"],
+      timestamp: obj["Timestamp"],
+      name: obj["Name"],
+      campus: obj["Campus"],
+      className: obj["Class"],
+      phone: String(obj["Phone"] || "").replace(/^'/, ""),
+      paymentMethod: obj["Payment Method"],
+      paid: obj["Paid"],
+      amount: obj["Amount"],
+      paymentProof: obj["Payment Proof URL"],
+      status: obj["Status"]
+    };
+  });
 }
 
 /**
- * Find single registration by ID
- */
-function getRegistrationById(sheet, id) {
-  const values = sheet.getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    if (String(values[i][0]) === String(id)) {
-      const row = values[i];
-      return {
-        id: row[0],
-        timestamp: row[1],
-        fullName: row[2],
-        email: row[3],
-        phone: row[4],
-        gender: row[5],
-        dob: row[6],
-        institution: row[7],
-        course: row[8],
-        district: row[9],
-        category: row[10],
-        competition: row[11],
-        accommodation: row[12],
-        food: row[13],
-        message: row[14],
-        status: row[15]
-      };
-    }
-  }
-  return null;
-}
-
-/**
- * Update an existing registration
- */
-function updateRegistration(sheet, data) {
-  const values = sheet.getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    if (String(values[i][0]) === String(data.id)) {
-      const rowNum = i + 1;
-      if (data.fullName !== undefined) sheet.getRange(rowNum, 3).setValue(data.fullName);
-      if (data.email !== undefined) sheet.getRange(rowNum, 4).setValue(data.email);
-      if (data.phone !== undefined) sheet.getRange(rowNum, 5).setValue(data.phone);
-      if (data.institution !== undefined) sheet.getRange(rowNum, 8).setValue(data.institution);
-      if (data.category !== undefined) sheet.getRange(rowNum, 11).setValue(data.category);
-      if (data.competition !== undefined) sheet.getRange(rowNum, 12).setValue(data.competition);
-      if (data.accommodation !== undefined) sheet.getRange(rowNum, 13).setValue(data.accommodation);
-      if (data.status !== undefined) sheet.getRange(rowNum, 16).setValue(data.status);
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Delete a registration row by ID
- */
-function deleteRegistrationById(sheet, id) {
-  const values = sheet.getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    if (String(values[i][0]) === String(id)) {
-      sheet.deleteRow(i + 1);
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Calculate aggregated statistics
+ * Calculate registration statistics
  */
 function calculateStats(sheet) {
-  const registrations = getAllRegistrations(sheet);
-  const total = registrations.length;
-  let accommodationCount = 0;
-  let male = 0;
-  let female = 0;
-
-  registrations.forEach(r => {
-    if (String(r.accommodation).toLowerCase() === "yes") accommodationCount++;
-    if (String(r.gender).toLowerCase() === "male") male++;
-    if (String(r.gender).toLowerCase() === "female") female++;
-  });
+  const records = getAllRegistrations(sheet);
+  const total = records.length;
+  const online = records.filter(r => r.paymentMethod === "online" || r.paid === "yes").length;
+  const venue = records.filter(r => r.paymentMethod === "venue").length;
 
   return {
-    totalRegistrations: total,
-    accommodationRequired: accommodationCount,
-    maleCount: male,
-    femaleCount: female
+    total: total,
+    onlinePaid: online,
+    payAtVenue: venue,
+    totalRevenue: online * 69
   };
 }
 
 /**
- * Helper to build JSON responses with proper headers
+ * Standard JSON response helper with CORS headers
  */
 function jsonResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data))

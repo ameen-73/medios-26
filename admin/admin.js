@@ -1,510 +1,322 @@
-/* ============================================================
-   JAMIA MADEENATHUNNOOR — MEDIA CONCLAVE 2026
-   Admin Portal Logic & Dashboard Controller
-   Theme: Casting Mass Commune (Vibrant Poster Visuals)
-   ============================================================ */
+/**
+ * JAMIA MADEENATHUNNOOR — MEDIA CONCLAVE 2026
+ * Admin Portal Script
+ */
 
-let currentRegistrations = [];
-let filteredRegistrations = [];
+const DEFAULT_USER = "medios'26";
+const DEFAULT_PASS = "med@231";
+const AUTH_KEY = "mc26_admin_authenticated";
 
-document.addEventListener('DOMContentLoaded', () => {
-  checkAuth();
-  setupAuthEvents();
-  initAdminFilters();
-  setupDashboardEvents();
-});
+let registrations = [];
 
-/* ------------------------------------------------------------
-   Toast Helper
-   ------------------------------------------------------------ */
-function showToast(msg) {
-  const toast = document.getElementById('admin-toast');
-  const msgEl = document.getElementById('toast-message');
-  if (toast && msgEl) {
-    msgEl.textContent = msg;
-    toast.classList.add('show');
-    setTimeout(() => {
-      toast.classList.remove('show');
-    }, 3000);
+document.addEventListener("DOMContentLoaded", () => {
+  // Elements
+  const authSection = document.getElementById("auth-section");
+  const adminSection = document.getElementById("admin-section");
+  const loginForm = document.getElementById("login-form");
+  const authError = document.getElementById("auth-error");
+  const logoutBtn = document.getElementById("logout-btn");
+  const refreshBtn = document.getElementById("refresh-btn");
+  const exportBtn = document.getElementById("export-csv-btn");
+  const searchInput = document.getElementById("search-input");
+  const filterPayment = document.getElementById("filter-payment");
+  const navReg = document.getElementById("nav-reg");
+  const navSettings = document.getElementById("nav-settings");
+  const tabReg = document.getElementById("tab-registrations");
+  const tabSettings = document.getElementById("tab-settings");
+  const proofModal = document.getElementById("proof-modal");
+  const modalCloseBtn = document.getElementById("modal-close-btn");
+  const saveSettingsBtn = document.getElementById("save-settings-btn");
+
+  // Check auth state
+  if (sessionStorage.getItem(AUTH_KEY) === "true") {
+    showAdminDashboard();
   }
-}
 
-/* ------------------------------------------------------------
-   1. Authentication & Route Protection
-   ------------------------------------------------------------ */
-function checkAuth() {
-  const token = sessionStorage.getItem('mc2026_admin_token');
-  const authSection = document.getElementById('auth-section');
-  const dashboardSection = document.getElementById('dashboard-section');
+  // Handle Login
+  if (loginForm) {
+    loginForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const user = document.getElementById("admin-email").value.trim();
+      const pass = document.getElementById("admin-pass").value.trim();
 
-  if (token) {
-    if (authSection) authSection.style.display = 'none';
-    if (dashboardSection) dashboardSection.style.display = 'flex';
-    loadDashboardData();
-  } else {
-    if (authSection) authSection.style.display = 'flex';
-    if (dashboardSection) dashboardSection.style.display = 'none';
-  }
-}
-
-function setupAuthEvents() {
-  const loginForm = document.getElementById('login-form');
-  const authError = document.getElementById('auth-error');
-  const logoutBtn = document.getElementById('btn-logout');
-
-  loginForm?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const email = document.getElementById('admin-email').value.trim().toLowerCase();
-    const pass = document.getElementById('admin-pass').value.trim();
-
-    // Authenticate with user ID "medios'26" or "medios26" and password "med@231"
-    const validUser = (email === "medios'26" || email === "medios26" || email === "admin@jamiamadeenathunnoor.org");
-    const validPass = (pass === "med@231" || pass === "admin2026");
-
-    if (validUser && validPass) {
-      sessionStorage.setItem('mc2026_admin_token', 'medios26_auth_' + Date.now());
-      if (authError) authError.style.display = 'none';
-      showToast('Welcome to Medios\'26 Admin Portal');
-      checkAuth();
-    } else {
-      if (authError) authError.style.display = 'flex';
-    }
-  });
-
-  logoutBtn?.addEventListener('click', () => {
-    sessionStorage.removeItem('mc2026_admin_token');
-    showToast('Signed out successfully');
-    checkAuth();
-  });
-}
-
-/* ------------------------------------------------------------
-   2. Initialize Filter Dropdowns from Config
-   ------------------------------------------------------------ */
-function initAdminFilters() {
-  const config = window.MC_CONFIG;
-  if (!config) return;
-
-  const catFilter = document.getElementById('filter-category');
-  const compFilter = document.getElementById('filter-competition');
-  const editCat = document.getElementById('edit-category');
-  const editComp = document.getElementById('edit-competition');
-
-  config.CATEGORIES?.forEach(cat => {
-    if (catFilter) catFilter.innerHTML += `<option value="${cat}">${cat}</option>`;
-    if (editCat) editCat.innerHTML += `<option value="${cat}">${cat}</option>`;
-  });
-
-  config.COMPETITIONS?.forEach(comp => {
-    if (compFilter) compFilter.innerHTML += `<option value="${comp}">${comp}</option>`;
-    if (editComp) editComp.innerHTML += `<option value="${comp}">${comp}</option>`;
-  });
-}
-
-/* ------------------------------------------------------------
-   3. Load Registrations from API or Local Storage
-   ------------------------------------------------------------ */
-async function loadDashboardData() {
-  const apiBase = window.MC_CONFIG?.API_BASE;
-  const storageKey = window.MC_CONFIG?.LOCAL_STORAGE_KEY || 'medios26_registrations';
-
-  try {
-    if (apiBase && apiBase.startsWith('http')) {
-      const response = await fetch(`${apiBase}?action=getRegistrations`);
-      const json = await response.json();
-      if (json && json.status === 'success' && Array.isArray(json.data)) {
-        currentRegistrations = json.data;
-        showToast('Live Google Sheets data synchronized');
+      if (user === DEFAULT_USER && pass === DEFAULT_PASS) {
+        sessionStorage.setItem(AUTH_KEY, "true");
+        authError.style.display = "none";
+        showAdminDashboard();
       } else {
-        throw new Error('Invalid API response');
+        authError.style.display = "block";
       }
+    });
+  }
+
+  // Handle Logout
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      sessionStorage.removeItem(AUTH_KEY);
+      adminSection.style.display = "none";
+      authSection.style.display = "flex";
+    });
+  }
+
+  // Navigation tabs
+  if (navReg && navSettings) {
+    navReg.addEventListener("click", () => {
+      navReg.classList.add("active");
+      navSettings.classList.remove("active");
+      tabReg.style.display = "block";
+      tabSettings.style.display = "none";
+    });
+
+    navSettings.addEventListener("click", () => {
+      navSettings.classList.add("active");
+      navReg.classList.remove("active");
+      tabSettings.style.display = "block";
+      tabReg.style.display = "none";
+    });
+  }
+
+  // Refresh & Export
+  if (refreshBtn) refreshBtn.addEventListener("click", loadRegistrations);
+  if (exportBtn) exportBtn.addEventListener("click", exportToCSV);
+
+  // Search & Filter
+  if (searchInput) searchInput.addEventListener("input", renderTable);
+  if (filterPayment) filterPayment.addEventListener("change", renderTable);
+
+  // Proof Modal Close
+  if (modalCloseBtn) {
+    modalCloseBtn.addEventListener("click", () => {
+      proofModal.style.display = "none";
+    });
+  }
+  if (proofModal) {
+    proofModal.addEventListener("click", (e) => {
+      if (e.target === proofModal) proofModal.style.display = "none";
+    });
+  }
+
+  // Save Settings
+  if (saveSettingsBtn) {
+    saveSettingsBtn.addEventListener("click", () => {
+      const fee = document.getElementById("setting-fee").value;
+      const whatsapp = document.getElementById("setting-whatsapp").value;
+      const api = document.getElementById("setting-api").value;
+
+      if (window.MC_CONFIG) {
+        if (window.MC_CONFIG.EVENT) window.MC_CONFIG.EVENT.fee = Number(fee);
+        window.MC_CONFIG.WHATSAPP_NUMBER = whatsapp;
+        window.MC_CONFIG.API_BASE = api;
+      }
+      alert("Settings updated successfully!");
+    });
+  }
+
+  function showAdminDashboard() {
+    authSection.style.display = "none";
+    adminSection.style.display = "grid";
+    loadRegistrations();
+    loadSettings();
+  }
+
+  async function loadRegistrations() {
+    // 1. Load from localStorage
+    const localData = JSON.parse(localStorage.getItem(window.MC_CONFIG?.LOCAL_STORAGE_KEY || "medios26_registrations_v2") || "[]");
+    registrations = localData;
+
+    // 2. Fetch from Google Apps Script Web App if configured
+    if (window.MC_CONFIG?.API_BASE && !window.MC_CONFIG.API_BASE.includes("AKfycbx...")) {
+      try {
+        const res = await fetch(`${window.MC_CONFIG.API_BASE}?action=getRegistrations`);
+        const json = await res.json();
+        if (json && json.status === "success" && Array.isArray(json.data)) {
+          // Merge remote records with local records avoiding duplicates
+          const remoteIds = new Set(json.data.map(r => r.id || r["Registration ID"]));
+          const merged = [...json.data.map(mapApiRecord)];
+          localData.forEach(item => {
+            if (!remoteIds.has(item.id)) {
+              merged.unshift(item);
+            }
+          });
+          registrations = merged;
+        }
+      } catch (err) {
+        console.warn("Backend fetch failed, using local storage:", err);
+      }
+    }
+
+    updateStats();
+    renderTable();
+  }
+
+  function mapApiRecord(r) {
+    return {
+      id: r.id || r["Registration ID"] || "MC26-" + Math.floor(1000 + Math.random() * 9000),
+      timestamp: r.timestamp || r["Timestamp"] || new Date().toISOString(),
+      name: r.name || r["Name"] || r["Full Name"] || "",
+      campus: r.campus || r["Campus"] || r["Campus Name"] || "",
+      className: r.className || r["Class"] || r["Course / Class"] || "",
+      phone: r.phone || r["Phone"] || r["Phone Number"] || "",
+      paymentMethod: (r.paymentMethod || r["Payment Method"] || "online").toLowerCase(),
+      paid: r.paid || r["Paid"] || (r.paymentMethod === "online" ? "yes" : "no"),
+      amount: r.amount || r["Amount"] || 69,
+      paymentProof: r.paymentProof || r["Payment Proof"] || "",
+      status: r.status || r["Status"] || "Verified"
+    };
+  }
+
+  function updateStats() {
+    const total = registrations.length;
+    const online = registrations.filter(r => r.paymentMethod === "online" || r.paid === "yes").length;
+    const venue = registrations.filter(r => r.paymentMethod === "venue" && r.paid !== "yes").length;
+    const revenue = online * (window.MC_CONFIG?.EVENT?.fee || 69);
+
+    document.getElementById("stat-total").textContent = total;
+    document.getElementById("stat-online").textContent = online;
+    document.getElementById("stat-venue").textContent = venue;
+    document.getElementById("stat-revenue").textContent = `₹${revenue.toLocaleString()}`;
+    document.getElementById("reg-count-badge").textContent = total;
+  }
+
+  function renderTable() {
+    const query = (searchInput?.value || "").toLowerCase().trim();
+    const filter = filterPayment?.value || "all";
+    const tbody = document.getElementById("table-body");
+    const emptyState = document.getElementById("empty-state");
+    const showingCount = document.getElementById("showing-count");
+
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    const filtered = registrations.filter(item => {
+      const matchQuery = !query ||
+        (item.name && item.name.toLowerCase().includes(query)) ||
+        (item.campus && item.campus.toLowerCase().includes(query)) ||
+        (item.className && item.className.toLowerCase().includes(query)) ||
+        (item.phone && item.phone.includes(query)) ||
+        (item.id && item.id.toLowerCase().includes(query));
+
+      const matchFilter = filter === "all" ||
+        (filter === "online" && (item.paymentMethod === "online" || item.paid === "yes")) ||
+        (filter === "venue" && item.paymentMethod === "venue" && item.paid !== "yes");
+
+      return matchQuery && matchFilter;
+    });
+
+    showingCount.textContent = filtered.length;
+
+    if (filtered.length === 0) {
+      emptyState.style.display = "block";
+      return;
     } else {
-      const raw = localStorage.getItem(storageKey);
-      currentRegistrations = raw ? JSON.parse(raw) : [];
-    }
-  } catch (err) {
-    console.warn('API error, reading from local store:', err);
-    const raw = localStorage.getItem(storageKey);
-    currentRegistrations = raw ? JSON.parse(raw) : [];
-  }
-
-  applyFilters();
-  calculateMetrics();
-}
-
-/* ------------------------------------------------------------
-   4. Calculate & Render Statistics & Visual Breakdown Bars
-   ------------------------------------------------------------ */
-function calculateMetrics() {
-  const totalEl = document.getElementById('stat-total');
-  const todayEl = document.getElementById('stat-today');
-  const stayEl = document.getElementById('stat-stay');
-  const genderEl = document.getElementById('stat-gender');
-
-  const total = currentRegistrations.length;
-  const now = new Date();
-  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-  let todayCount = 0;
-  let stayCount = 0;
-  let maleCount = 0;
-  let femaleCount = 0;
-
-  const categoryCounts = {};
-  const compCounts = {};
-
-  currentRegistrations.forEach(r => {
-    // Today's entries
-    if (r.timestamp && new Date(r.timestamp) >= oneDayAgo) {
-      todayCount++;
+      emptyState.style.display = "none";
     }
 
-    // Accommodation
-    if (String(r.accommodation).toLowerCase() === 'yes') {
-      stayCount++;
+    filtered.forEach((r, idx) => {
+      const tr = document.createElement("tr");
+      const isOnline = r.paymentMethod === "online" || r.paid === "yes";
+
+      const proofHtml = r.paymentProof
+        ? `<button class="btn-proof-thumb" onclick="window.viewProof(${idx})">📷 View Proof</button>`
+        : `<span style="color:#aaa; font-size:0.75rem;">None</span>`;
+
+      tr.innerHTML = `
+        <td><strong>${escapeHtml(r.id)}</strong></td>
+        <td>${escapeHtml(r.name)}</td>
+        <td>${escapeHtml(r.campus)}</td>
+        <td>${escapeHtml(r.className)}</td>
+        <td><a href="tel:${escapeHtml(r.phone)}" style="color:var(--o); font-weight:600;">${escapeHtml(r.phone)}</a></td>
+        <td><span class="${isOnline ? 'badge-paid' : 'badge-venue'}">${isOnline ? 'ONLINE (₹69)' : 'VENUE (₹69)'}</span></td>
+        <td>${proofHtml}</td>
+        <td>${escapeHtml(r.status || 'Verified')}</td>
+        <td style="color:#777; font-size:0.75rem;">${formatDate(r.timestamp)}</td>
+        <td>
+          <button class="btn-delete" onclick="window.deleteRecord('${escapeHtml(r.id)}')">✕</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  window.viewProof = function(index) {
+    const r = registrations[index];
+    if (!r || !r.paymentProof) return;
+
+    const modal = document.getElementById("proof-modal");
+    const img = document.getElementById("modal-proof-img");
+    const info = document.getElementById("modal-reg-info");
+    const download = document.getElementById("modal-download-btn");
+
+    img.src = r.paymentProof;
+    download.href = r.paymentProof;
+    download.download = `${r.id}_proof.jpg`;
+    info.textContent = `Participant: ${r.name} (${r.phone}) · ID: ${r.id}`;
+    modal.style.display = "flex";
+  };
+
+  window.deleteRecord = function(id) {
+    if (!confirm(`Are you sure you want to remove registration ${id}?`)) return;
+
+    registrations = registrations.filter(r => r.id !== id);
+    localStorage.setItem(window.MC_CONFIG?.LOCAL_STORAGE_KEY || "medios26_registrations_v2", JSON.stringify(registrations));
+    updateStats();
+    renderTable();
+  };
+
+  function exportToCSV() {
+    if (registrations.length === 0) {
+      alert("No registration records to export.");
+      return;
     }
 
-    // Gender
-    const g = String(r.gender).toLowerCase();
-    if (g === 'male') maleCount++;
-    else if (g === 'female') femaleCount++;
+    const headers = ["Registration ID", "Timestamp", "Name", "Campus", "Class", "Phone", "Payment Method", "Paid", "Amount", "Status"];
+    const rows = registrations.map(r => [
+      r.id,
+      r.timestamp,
+      `"${(r.name || '').replace(/"/g, '""')}"`,
+      `"${(r.campus || '').replace(/"/g, '""')}"`,
+      `"${(r.className || '').replace(/"/g, '""')}"`,
+      `"${(r.phone || '').replace(/"/g, '""')}"`,
+      r.paymentMethod,
+      r.paid,
+      r.amount || 69,
+      r.status
+    ]);
 
-    // Category
-    const cat = r.category || 'Other';
-    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Media_Conclave_2026_Registrations_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
-    // Competition
-    const comp = r.competition || 'Delegate Only';
-    compCounts[comp] = (compCounts[comp] || 0) + 1;
-  });
+  function loadSettings() {
+    if (window.MC_CONFIG) {
+      const feeInput = document.getElementById("setting-fee");
+      const waInput = document.getElementById("setting-whatsapp");
+      const apiInput = document.getElementById("setting-api");
 
-  if (totalEl) totalEl.textContent = total;
-  if (todayEl) todayEl.textContent = todayCount;
-  if (stayEl) stayEl.textContent = stayCount;
-  if (genderEl) genderEl.textContent = `${maleCount}M / ${femaleCount}F`;
-
-  // Render Category Breakdown with Progress Meters
-  const catList = document.getElementById('category-breakdown-list');
-  if (catList) {
-    const entries = Object.entries(categoryCounts);
-    if (entries.length === 0) {
-      catList.innerHTML = '<p style="color:#888; font-size:0.85rem; padding:10px 0;">No registrations recorded yet.</p>';
-    } else {
-      catList.innerHTML = entries.map(([k, v]) => {
-        const pct = total > 0 ? Math.round((v / total) * 100) : 0;
-        return `
-          <div class="breakdown-item">
-            <div class="breakdown-item-info">
-              <span>${k}</span>
-              <span>${v} (${pct}%)</span>
-            </div>
-            <div class="breakdown-meter-wrap">
-              <div class="breakdown-meter-fill" style="width:${pct}%;"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
+      if (feeInput && window.MC_CONFIG.EVENT) feeInput.value = window.MC_CONFIG.EVENT.fee || 69;
+      if (waInput) waInput.value = window.MC_CONFIG.WHATSAPP_NUMBER || "8943318613";
+      if (apiInput) apiInput.value = window.MC_CONFIG.API_BASE || "";
     }
   }
 
-  // Render Competition Breakdown with Progress Meters
-  const compList = document.getElementById('competition-breakdown-list');
-  if (compList) {
-    const entries = Object.entries(compCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    if (entries.length === 0) {
-      compList.innerHTML = '<p style="color:#888; font-size:0.85rem; padding:10px 0;">No competition entries recorded yet.</p>';
-    } else {
-      compList.innerHTML = entries.map(([k, v], idx) => {
-        const pct = total > 0 ? Math.round((v / total) * 100) : 0;
-        const colorClass = idx % 2 === 0 ? 'cyan' : 'red';
-        return `
-          <div class="breakdown-item">
-            <div class="breakdown-item-info">
-              <span>${k}</span>
-              <span>${v} entries</span>
-            </div>
-            <div class="breakdown-meter-wrap">
-              <div class="breakdown-meter-fill ${colorClass}" style="width:${pct}%;"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
+  function formatDate(isoStr) {
+    if (!isoStr) return "";
+    try {
+      const d = new Date(isoStr);
+      return d.toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return isoStr;
     }
   }
-}
 
-/* ------------------------------------------------------------
-   5. Search, Multi-Filter & Table Rendering
-   ------------------------------------------------------------ */
-function applyFilters() {
-  const search = document.getElementById('filter-search')?.value.toLowerCase().trim() || '';
-  const category = document.getElementById('filter-category')?.value || '';
-  const competition = document.getElementById('filter-competition')?.value || '';
-  const accommodation = document.getElementById('filter-accommodation')?.value || '';
-  const status = document.getElementById('filter-status')?.value || '';
-
-  filteredRegistrations = currentRegistrations.filter(r => {
-    const searchTarget = `${r.id} ${r.fullName} ${r.email} ${r.phone} ${r.institution}`.toLowerCase();
-    if (search && !searchTarget.includes(search)) return false;
-    if (category && r.category !== category) return false;
-    if (competition && r.competition !== competition) return false;
-    if (accommodation && r.accommodation !== accommodation) return false;
-    if (status && r.status !== status) return false;
-
-    return true;
-  });
-
-  const countBadge = document.getElementById('table-count-badge');
-  if (countBadge) {
-    countBadge.textContent = `${filteredRegistrations.length} of ${currentRegistrations.length} Records`;
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
-
-  renderTable();
-}
-
-function getInitials(name) {
-  if (!name) return 'M';
-  const parts = name.trim().split(' ');
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
-}
-
-function renderTable() {
-  const tbody = document.getElementById('table-tbody');
-  if (!tbody) return;
-
-  if (filteredRegistrations.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="10" class="empty-state">
-          No matching registrations found for the selected filter criteria.
-        </td>
-      </tr>
-    `;
-    return;
-  }
-
-  tbody.innerHTML = filteredRegistrations.map(r => {
-    const statusClass = (r.status || 'Confirmed').toLowerCase();
-    const dateStr = r.timestamp ? new Date(r.timestamp).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-    const initials = getInitials(r.fullName);
-    
-    return `
-      <tr data-id="${r.id}">
-        <td><span class="reg-id-badge">${r.id}</span></td>
-        <td>
-          <div class="participant-cell">
-            <div class="participant-avatar">${initials}</div>
-            <strong>${r.fullName}</strong>
-          </div>
-        </td>
-        <td>
-          <div style="font-size:0.82rem; font-weight:700; color:var(--poster-black);">${r.email}</div>
-          <div style="font-size:0.75rem; color:#777; font-family:var(--font-mono);">${r.phone}</div>
-        </td>
-        <td>${r.institution || '—'}</td>
-        <td><strong>${r.category || '—'}</strong></td>
-        <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis;" title="${r.competition}">${r.competition}</td>
-        <td>
-          <span style="font-weight:800; color:${r.accommodation === 'Yes' ? '#b86e00' : '#888'};">
-            ${r.accommodation === 'Yes' ? '🏨 Yes' : 'No'}
-          </span>
-        </td>
-        <td style="font-size:0.8rem; font-family:var(--font-mono); color:#666;">${dateStr}</td>
-        <td>
-          <span class="badge-status badge-${statusClass}">${r.status || 'Confirmed'}</span>
-        </td>
-        <td>
-          <div class="row-actions">
-            <button class="btn-icon" title="View Full Profile" onclick="openViewModal('${r.id}')">
-              👁
-            </button>
-            <button class="btn-icon" title="Edit Registration" onclick="openEditModal('${r.id}')">
-              ✎
-            </button>
-            <button class="btn-icon danger" title="Delete Entry" onclick="deleteRecord('${r.id}')">
-              ✕
-            </button>
-          </div>
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-/* ------------------------------------------------------------
-   6. Dashboard Actions & Modal Triggers
-   ------------------------------------------------------------ */
-function setupDashboardEvents() {
-  const searchInput = document.getElementById('filter-search');
-  const catFilter = document.getElementById('filter-category');
-  const compFilter = document.getElementById('filter-competition');
-  const stayFilter = document.getElementById('filter-accommodation');
-  const statusFilter = document.getElementById('filter-status');
-  const refreshBtn = document.getElementById('btn-refresh');
-  const exportCsvBtn = document.getElementById('btn-export-csv');
-
-  searchInput?.addEventListener('input', applyFilters);
-  catFilter?.addEventListener('change', applyFilters);
-  compFilter?.addEventListener('change', applyFilters);
-  stayFilter?.addEventListener('change', applyFilters);
-  statusFilter?.addEventListener('change', applyFilters);
-
-  refreshBtn?.addEventListener('click', () => {
-    loadDashboardData();
-    showToast('Data refreshed successfully');
-  });
-
-  exportCsvBtn?.addEventListener('click', exportToCSV);
-
-  // View modal close
-  document.getElementById('btn-close-view-modal')?.addEventListener('click', () => {
-    document.getElementById('view-modal').classList.remove('open');
-  });
-
-  // Edit modal actions
-  document.getElementById('btn-cancel-edit')?.addEventListener('click', () => {
-    document.getElementById('edit-modal').classList.remove('open');
-  });
-
-  document.getElementById('edit-form')?.addEventListener('submit', handleSaveEdit);
-}
-
-/* View Modal */
-window.openViewModal = function(id) {
-  const record = currentRegistrations.find(r => r.id === id);
-  if (!record) return;
-
-  const viewBadge = document.getElementById('view-id-badge');
-  if (viewBadge) viewBadge.textContent = `ID: ${record.id}`;
-
-  const content = document.getElementById('view-details-content');
-  content.innerHTML = `
-    <div class="detail-item"><span>Registration ID</span><span style="color:var(--poster-orange-bright); font-family:var(--font-mono); font-size:1.1rem;">${record.id}</span></div>
-    <div class="detail-item"><span>Current Status</span><span style="font-weight:900; color:var(--poster-red);">${record.status || 'Confirmed'}</span></div>
-    <div class="detail-item"><span>Full Name</span><span>${record.fullName}</span></div>
-    <div class="detail-item"><span>Email Address</span><span>${record.email}</span></div>
-    <div class="detail-item"><span>Contact Phone</span><span>${record.phone}</span></div>
-    <div class="detail-item"><span>Gender</span><span>${record.gender || '—'}</span></div>
-    <div class="detail-item"><span>Date of Birth</span><span>${record.dob || '—'}</span></div>
-    <div class="detail-item"><span>Institution / College</span><span>${record.institution}</span></div>
-    <div class="detail-item"><span>Course / Department</span><span>${record.course || '—'}</span></div>
-    <div class="detail-item"><span>District / State</span><span>${record.district || '—'}</span></div>
-    <div class="detail-item"><span>Delegate Category</span><span>${record.category}</span></div>
-    <div class="detail-item"><span>Competition Track</span><span>${record.competition}</span></div>
-    <div class="detail-item"><span>Accommodation Needed</span><span>${record.accommodation}</span></div>
-    ${record.food ? `<div class="detail-item"><span>Food Preference</span><span>${record.food}</span></div>` : ''}
-    <div class="detail-item" style="grid-column: 1 / -1;"><span>Delegate Notes / Remarks</span><span>${record.message || 'No special remarks provided.'}</span></div>
-    <div class="detail-item" style="grid-column: 1 / -1;"><span>Submission Timestamp</span><span style="font-family:var(--font-mono); font-size:0.85rem;">${record.timestamp || '—'}</span></div>
-  `;
-
-  document.getElementById('view-modal').classList.add('open');
-};
-
-/* Edit Modal */
-window.openEditModal = function(id) {
-  const record = currentRegistrations.find(r => r.id === id);
-  if (!record) return;
-
-  document.getElementById('edit-id').value = record.id;
-  document.getElementById('edit-name').value = record.fullName;
-  document.getElementById('edit-email').value = record.email;
-  document.getElementById('edit-phone').value = record.phone;
-  document.getElementById('edit-institution').value = record.institution;
-  document.getElementById('edit-category').value = record.category;
-  document.getElementById('edit-competition').value = record.competition;
-  document.getElementById('edit-accommodation').value = record.accommodation;
-  document.getElementById('edit-status').value = record.status || 'Confirmed';
-
-  document.getElementById('edit-modal').classList.add('open');
-};
-
-function handleSaveEdit(e) {
-  e.preventDefault();
-  const id = document.getElementById('edit-id').value;
-  const idx = currentRegistrations.findIndex(r => r.id === id);
-  if (idx === -1) return;
-
-  currentRegistrations[idx].fullName = document.getElementById('edit-name').value.trim();
-  currentRegistrations[idx].email = document.getElementById('edit-email').value.trim();
-  currentRegistrations[idx].phone = document.getElementById('edit-phone').value.trim();
-  currentRegistrations[idx].institution = document.getElementById('edit-institution').value.trim();
-  currentRegistrations[idx].category = document.getElementById('edit-category').value;
-  currentRegistrations[idx].competition = document.getElementById('edit-competition').value;
-  currentRegistrations[idx].accommodation = document.getElementById('edit-accommodation').value;
-  currentRegistrations[idx].status = document.getElementById('edit-status').value;
-
-  persistChanges();
-  document.getElementById('edit-modal').classList.remove('open');
-  applyFilters();
-  calculateMetrics();
-  showToast(`Delegate record ${id} updated`);
-}
-
-/* Delete Record */
-window.deleteRecord = function(id) {
-  if (!confirm(`Are you sure you want to permanently delete registration ${id}?`)) {
-    return;
-  }
-
-  currentRegistrations = currentRegistrations.filter(r => r.id !== id);
-  persistChanges();
-  applyFilters();
-  calculateMetrics();
-  showToast(`Record ${id} removed`);
-};
-
-function persistChanges() {
-  const storageKey = window.MC_CONFIG?.LOCAL_STORAGE_KEY || 'medios26_registrations';
-  localStorage.setItem(storageKey, JSON.stringify(currentRegistrations));
-}
-
-/* ------------------------------------------------------------
-   7. CSV Export Generator
-   ------------------------------------------------------------ */
-function exportToCSV() {
-  if (!currentRegistrations || currentRegistrations.length === 0) {
-    alert('No registrations available to export.');
-    return;
-  }
-
-  const headers = [
-    'Registration ID', 'Timestamp', 'Full Name', 'Email', 'Phone',
-    'Gender', 'Date of Birth', 'Institution', 'Course', 'District',
-    'Category', 'Competition', 'Accommodation', 'Food Preference',
-    'Message', 'Status'
-  ];
-
-  const rows = currentRegistrations.map(r => [
-    `"${r.id || ''}"`,
-    `"${r.timestamp || ''}"`,
-    `"${(r.fullName || '').replace(/"/g, '""')}"`,
-    `"${r.email || ''}"`,
-    `"${r.phone || ''}"`,
-    `"${r.gender || ''}"`,
-    `"${r.dob || ''}"`,
-    `"${(r.institution || '').replace(/"/g, '""')}"`,
-    `"${(r.course || '').replace(/"/g, '""')}"`,
-    `"${r.district || ''}"`,
-    `"${r.category || ''}"`,
-    `"${r.competition || ''}"`,
-    `"${r.accommodation || ''}"`,
-    `"${r.food || ''}"`,
-    `"${(r.message || '').replace(/"/g, '""')}"`,
-    `"${r.status || 'Confirmed'}"`
-  ]);
-
-  const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', `MediaConclave2026_Registrations_${new Date().toISOString().slice(0,10)}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  showToast('Exported CSV roster file downloaded');
-}
+});

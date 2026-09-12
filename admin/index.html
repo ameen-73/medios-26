@@ -3,70 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Portal — Medios'26 | Jamia Madeenathunnoor</title>
-  <meta name="theme-color" content="#f35b1d">
+  <title>Admin Portal — Media Conclave 2026</title>
+  <meta name="theme-color" content="#f0521f">
   <meta name="robots" content="noindex, nofollow">
-  
-  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
-  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 
-  <!-- Google Fonts: Anton & Archivo -->
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-
-  <!-- Fallback & Path Resistant Stylesheet Links -->
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="admin.css">
-  <link rel="stylesheet" href="/admin/admin.css">
-  <link rel="stylesheet" href="./admin.css">
-
-  <script>
-    // Ensure trailing slash redirect for proper relative asset loading if served at /admin without slash
-    if (window.location.pathname.endsWith('/admin')) {
-      window.location.replace(window.location.pathname + '/' + window.location.search + window.location.hash);
-    }
-  </script>
-
-  <script src="../js/config.js"></script>
-  <script src="/js/config.js"></script>
+  <script src="../js/config.js" defer></script>
   <script src="admin.js" defer></script>
-  <script src="/admin/admin.js" defer></script>
 </head>
 <body>
 
-  <!-- Universal SVG Symbol Library (Hidden) -->
-  <svg style="display:none; width:0; height:0; position:absolute;" aria-hidden="true">
-    <defs>
-      <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-        <line x1="12" y1="19" x2="12" y2="22"/>
-      </symbol>
-      <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-        <circle cx="9" cy="7" r="4"/>
-        <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-      </symbol>
-      <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="20 6 9 17 4 12"/>
-      </symbol>
-    </defs>
-  </svg>
-
   <!-- ================= 1. AUTH LOGIN VIEW ================= -->
   <div class="auth-wrapper" id="auth-section">
-    <!-- Broadcast Radar Background Rings -->
-    <div class="auth-radar" aria-hidden="true">
-      <span class="r1"></span>
-      <span class="r2"></span>
-      <span class="r3"></span>
-    </div>
-
     <div class="auth-card">
       <div class="auth-header">
-        <div class="auth-brand-badge">CASTING MASS COMMUNE</div>
-        <h1>MEDIOS'26</h1>
+        <div class="auth-brand-badge">ORGANIZER PORTAL</div>
+        <h1>MEDIA CONCLAVE</h1>
         <p>Jamia Madeenathunnoor · Admin Console</p>
       </div>
 
@@ -81,277 +38,160 @@
         </div>
 
         <div class="auth-group">
-          <label for="admin-pass">Security Key / Password</label>
+          <label for="admin-pass">Password</label>
           <input class="auth-input" type="password" id="admin-pass" placeholder="••••••••" required autocomplete="current-password">
         </div>
 
-        <button class="auth-btn" type="submit" id="btn-login-submit">
-          ACCESS DASHBOARD →
+        <button type="submit" class="auth-submit-btn" id="login-btn">
+          ENTER CONSOLE <span>→</span>
         </button>
       </form>
     </div>
   </div>
 
-  <!-- ================= 2. MAIN DASHBOARD VIEW ================= -->
-  <div class="dashboard-wrap" id="dashboard-section" style="display:none;">
-    <div class="dash-accent-strip"></div>
+  <!-- ================= 2. MAIN ADMIN SHELL ================= -->
+  <div class="admin-shell" id="admin-section" style="display: none;">
     
-    <!-- Top Header Navigation -->
-    <header class="dashboard-header">
-      <div class="dash-brand">
-        <div class="dash-brand-emblem" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 32 32" fill="currentColor" style="display:block; max-width:22px; max-height:22px;">
-            <path d="M4 8 L16 2 L28 8 L28 20 L16 30 L4 20 Z" fill="none" stroke="currentColor" stroke-width="2.5"/>
-            <path d="M10 14 L16 10 L22 14 M16 10 L16 22" fill="none" stroke="currentColor" stroke-width="2"/>
-          </svg>
-        </div>
-        <div class="dash-brand-title">
-          <strong>MEDIOS'26</strong>
-          <span>Admin Portal · Conclave Operations</span>
+    <!-- Sidebar -->
+    <aside class="admin-side">
+      <div class="admin-brand">
+        <span>MC</span>
+        <div>
+          <strong>MEDIA CONCLAVE</strong><br>
+          <small style="color: #777;">ADMIN CONSOLE</small>
         </div>
       </div>
 
-      <div class="dash-user-controls">
-        <div class="dash-pill-badge">
-          <span class="dot"></span> Live Sync Active
-        </div>
-        <a class="dash-back-site" href="../index.html" target="_blank">
-          Public Site ↗
-        </a>
-        <button class="btn-logout" id="btn-logout" aria-label="Sign out of admin session">
-          Sign Out
+      <nav>
+        <button class="active" data-tab="registrations" id="nav-reg">
+          Registrations <b id="reg-count-badge">0</b>
         </button>
+        <button data-tab="settings" id="nav-settings">
+          Event Settings
+        </button>
+      </nav>
+
+      <div class="admin-user">
+        <small>Logged in as</small>
+        <strong id="user-display">Organizer Admin</strong>
+        <a href="../index.html" target="_blank" style="margin-top: 6px; color: #fff;">View Live Site ↗</a>
+        <a id="logout-btn" style="color: var(--o); margin-top: 4px;">Logout ↗</a>
       </div>
-    </header>
+    </aside>
 
-    <!-- Main Dashboard Body -->
-    <main class="dashboard-main">
-      
-      <!-- Metric Cards Grid -->
-      <section class="metrics-grid">
-        <div class="metric-card accent-orange">
-          <div class="metric-header">
-            <span class="metric-title">Total Registrations</span>
-            <div class="metric-icon-badge">📋</div>
-          </div>
-          <span class="metric-value" id="stat-total">0</span>
-          <span class="metric-sub">All Delegates Registered</span>
+    <!-- Main Content -->
+    <main class="admin-main">
+      <header>
+        <div>
+          <small>MEDIA CONCLAVE 2026</small>
+          <h1>CONTROL DESK.</h1>
         </div>
-
-        <div class="metric-card accent-green">
-          <div class="metric-header">
-            <span class="metric-title">Today's New Entries</span>
-            <div class="metric-icon-badge">⚡</div>
-          </div>
-          <span class="metric-value" id="stat-today" style="color: #0d8a3e;">0</span>
-          <span class="metric-sub">Past 24 Hours Activity</span>
+        <div class="admin-header-actions">
+          <button id="refresh-btn">🔄 Refresh Data</button>
+          <button id="export-csv-btn">📥 Export CSV</button>
         </div>
+      </header>
 
-        <div class="metric-card accent-yellow">
-          <div class="metric-header">
-            <span class="metric-title">Accommodation Needed</span>
-            <div class="metric-icon-badge">🏨</div>
+      <!-- Registrations View -->
+      <section id="tab-registrations">
+        <!-- Metric Cards -->
+        <div class="metrics-row">
+          <div class="metric-card">
+            <label>Total Registrations</label>
+            <div class="num" id="stat-total">0</div>
           </div>
-          <span class="metric-value" id="stat-stay" style="color: #b86e00;">0</span>
-          <span class="metric-sub">Hostel & Guest Stay Requisition</span>
-        </div>
-
-        <div class="metric-card accent-cyan">
-          <div class="metric-header">
-            <span class="metric-title">Gender Ratio</span>
-            <div class="metric-icon-badge">👥</div>
+          <div class="metric-card green">
+            <label>Online Paid</label>
+            <div class="num" id="stat-online">0</div>
           </div>
-          <span class="metric-value" id="stat-gender" style="font-size: 2.2rem; color: var(--poster-cyan);">0M / 0F</span>
-          <span class="metric-sub">Male & Female Distribution</span>
-        </div>
-      </section>
-
-      <!-- Secondary Breakdown Charts -->
-      <section class="breakdown-row">
-        <!-- Category Breakdown -->
-        <div class="breakdown-card">
-          <div class="breakdown-card-header">
-            <h3>Category Breakdown</h3>
-            <span class="breakdown-badge">DISTRIBUTION</span>
+          <div class="metric-card yellow">
+            <label>Pay at Venue</label>
+            <div class="num" id="stat-venue">0</div>
           </div>
-          <div class="breakdown-list" id="category-breakdown-list">
-            <!-- Populated dynamically via admin.js -->
+          <div class="metric-card red">
+            <label>Total Collected (₹)</label>
+            <div class="num" id="stat-revenue">₹0</div>
           </div>
         </div>
 
-        <!-- Competition Breakdown -->
-        <div class="breakdown-card">
-          <div class="breakdown-card-header">
-            <h3>Top Competition Tracks</h3>
-            <span class="breakdown-badge" style="background:var(--poster-cyan);">POPULAR</span>
+        <!-- Data Card -->
+        <div class="admin-card">
+          <div class="card-top-bar">
+            <div class="search-filter-box">
+              <input type="text" id="search-input" placeholder="Search by name, campus, class, or phone...">
+              <select id="filter-payment">
+                <option value="all">All Payment Types</option>
+                <option value="online">Online Paid</option>
+                <option value="venue">Pay at Venue</option>
+              </select>
+            </div>
+            <div style="font-size: 0.85rem; color: #777;">
+              Showing <b id="showing-count">0</b> records
+            </div>
           </div>
-          <div class="breakdown-list" id="competition-breakdown-list">
-            <!-- Populated dynamically via admin.js -->
+
+          <div class="table-wrap">
+            <table id="reg-table">
+              <thead>
+                <tr>
+                  <th>Reg ID</th>
+                  <th>Name</th>
+                  <th>Campus</th>
+                  <th>Class</th>
+                  <th>Phone</th>
+                  <th>Payment</th>
+                  <th>Proof</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="table-body">
+                <!-- Rows injected dynamically -->
+              </tbody>
+            </table>
+            <div class="empty-state" id="empty-state" style="display: none;">
+              No registrations found.
+            </div>
           </div>
-        </div>
-      </section>
-
-      <!-- Table Toolbar & Filters -->
-      <section class="toolbar-wrap">
-        <div class="toolbar-top">
-          <div class="toolbar-title-wrap">
-            <h2 class="toolbar-title">Delegates & Registrations Directory</h2>
-            <span class="toolbar-count-chip" id="table-count-badge">0 Records</span>
-          </div>
-          
-          <div class="toolbar-actions">
-            <button class="btn-tool primary" id="btn-refresh">
-              ↻ Refresh Data
-            </button>
-            <button class="btn-tool" id="btn-export-csv">
-              ↓ Export CSV
-            </button>
-            <button class="btn-tool" onclick="window.print()">
-              🖶 Print Roster
-            </button>
-          </div>
-        </div>
-
-        <!-- Filter Controls -->
-        <div class="filters-grid">
-          <div class="filter-input-wrap">
-            <span class="search-icon">🔍</span>
-            <input class="filter-input" type="text" id="filter-search" placeholder="Search by ID, name, email, phone, institution...">
-          </div>
-          
-          <select class="filter-select" id="filter-category">
-            <option value="">All Categories</option>
-          </select>
-
-          <select class="filter-select" id="filter-competition">
-            <option value="">All Tracks & Contests</option>
-          </select>
-
-          <select class="filter-select" id="filter-accommodation">
-            <option value="">All Stay Types</option>
-            <option value="Yes">Stay Required</option>
-            <option value="No">No Stay Required</option>
-          </select>
-
-          <select class="filter-select" id="filter-status">
-            <option value="">All Statuses</option>
-            <option value="Confirmed">Confirmed</option>
-            <option value="Pending">Pending</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
         </div>
       </section>
 
-      <!-- Main Data Table -->
-      <section class="table-card">
-        <div class="table-responsive">
-          <table class="reg-table" id="registrations-table">
-            <thead>
-              <tr>
-                <th>Reg ID</th>
-                <th>Participant</th>
-                <th>Contact Info</th>
-                <th>Institution</th>
-                <th>Category</th>
-                <th>Competition Track</th>
-                <th>Stay</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="table-tbody">
-              <!-- Populated via admin.js -->
-            </tbody>
-          </table>
+      <!-- Settings View -->
+      <section id="tab-settings" style="display: none;">
+        <div class="admin-card">
+          <h2 style="font-family: var(--font-heading); margin-bottom: 20px;">EVENT SETTINGS</h2>
+          <div class="admin-grid">
+            <label>
+              Registration Fee (₹)
+              <input type="number" id="setting-fee" value="69">
+            </label>
+            <label>
+              Organizer WhatsApp Number
+              <input type="text" id="setting-whatsapp" value="8943318613">
+            </label>
+            <label class="wide">
+              Google Apps Script API Endpoint
+              <input type="url" id="setting-api" placeholder="https://script.google.com/macros/s/.../exec">
+            </label>
+          </div>
+          <button id="save-settings-btn">SAVE CONFIGURATION <span>↗</span></button>
         </div>
       </section>
     </main>
   </div>
 
-  <!-- ================= 3. VIEW REGISTRATION DETAIL MODAL ================= -->
-  <div class="admin-modal" id="view-modal">
-    <div class="admin-modal-card">
-      <div class="modal-header-row">
-        <h2>Delegate Dossier</h2>
-        <span class="toolbar-count-chip" id="view-id-badge">ID: MED-0000</span>
-      </div>
-      <div class="detail-grid" id="view-details-content">
-        <!-- Injected via admin.js -->
-      </div>
-      <div style="display:flex; justify-content:flex-end; gap:12px;">
-        <button class="btn-tool" onclick="window.print()">🖶 Print Badge</button>
-        <button class="btn-tool primary" id="btn-close-view-modal">Close Window</button>
+  <!-- Proof Preview Modal -->
+  <div class="modal-overlay" id="proof-modal">
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close-btn">&times;</button>
+      <h3 style="font-family: var(--font-heading);">Payment Proof Screenshot</h3>
+      <p style="color: #999; font-size: 0.8rem;" id="modal-reg-info"></p>
+      <img id="modal-proof-img" src="" alt="Payment Proof">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <a id="modal-download-btn" href="" download="payment_proof.jpg" style="color: var(--o); font-weight: 700;">Download Image ↗</a>
       </div>
     </div>
-  </div>
-
-  <!-- ================= 4. EDIT REGISTRATION MODAL ================= -->
-  <div class="admin-modal" id="edit-modal">
-    <div class="admin-modal-card">
-      <div class="modal-header-row">
-        <h2>Edit Delegate Details</h2>
-      </div>
-      <form id="edit-form">
-        <input type="hidden" id="edit-id">
-
-        <div class="detail-grid">
-          <div class="auth-group">
-            <label for="edit-name">Full Name</label>
-            <input class="auth-input" type="text" id="edit-name" required>
-          </div>
-          <div class="auth-group">
-            <label for="edit-email">Email Address</label>
-            <input class="auth-input" type="email" id="edit-email" required>
-          </div>
-          <div class="auth-group">
-            <label for="edit-phone">Phone Number</label>
-            <input class="auth-input" type="text" id="edit-phone" required>
-          </div>
-          <div class="auth-group">
-            <label for="edit-institution">Institution / College</label>
-            <input class="auth-input" type="text" id="edit-institution" required>
-          </div>
-          <div class="auth-group">
-            <label for="edit-category">Category</label>
-            <select class="filter-select" id="edit-category" style="width:100%;">
-              <!-- Dynamic -->
-            </select>
-          </div>
-          <div class="auth-group">
-            <label for="edit-competition">Competition Track</label>
-            <select class="filter-select" id="edit-competition" style="width:100%;">
-              <!-- Dynamic -->
-            </select>
-          </div>
-          <div class="auth-group">
-            <label for="edit-accommodation">Accommodation</label>
-            <select class="filter-select" id="edit-accommodation" style="width:100%;">
-              <option value="Yes">Yes (Stay Needed)</option>
-              <option value="No">No Stay Needed</option>
-            </select>
-          </div>
-          <div class="auth-group">
-            <label for="edit-status">Status</label>
-            <select class="filter-select" id="edit-status" style="width:100%;">
-              <option value="Confirmed">Confirmed</option>
-              <option value="Pending">Pending</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
-          </div>
-        </div>
-
-        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px;">
-          <button type="button" class="btn-tool" id="btn-cancel-edit">Cancel</button>
-          <button type="submit" class="btn-tool primary" style="padding:10px 24px;">Save Changes</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Toast Notification Overlay -->
-  <div class="admin-toast" id="admin-toast">
-    <span id="toast-message">Action completed successfully</span>
   </div>
 
 </body>
