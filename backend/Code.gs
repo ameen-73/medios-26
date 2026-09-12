@@ -5,16 +5,10 @@
  * ============================================================
  * 
  * SETUP INSTRUCTIONS:
- * 1. Create a new Google Spreadsheet (e.g., "Media Conclave 2026 Registrations").
- * 2. Go to Extensions > Apps Script.
- * 3. Replace all code in Code.gs with this file content.
- * 4. Click "Deploy" > "New deployment".
- * 5. Select type: "Web app".
- * 6. Set Description: "Media Conclave 2026 API".
- * 7. Execute as: "Me" (your Google account).
- * 8. Who has access: "Anyone" (allows website submissions).
- * 9. Click "Deploy", authorize permissions, and copy the Web App URL.
- * 10. Paste the Web App URL into window.MC_CONFIG.API_BASE in js/config.js.
+ * 1. Open your Google Spreadsheet (Extensions > Apps Script).
+ * 2. Replace all code in Code.gs with this file content.
+ * 3. Click "Deploy" > "Manage deployments" > Edit > "New version" > Deploy.
+ *    (Or "Deploy" > "New deployment" > Web App > Execute as: Me > Access: Anyone).
  */
 
 const SHEET_NAME = "Registrations";
@@ -22,6 +16,7 @@ const DRIVE_FOLDER_NAME = "Media_Conclave_2026_Payment_Proofs";
 const ADMIN_USERNAME = "medios'26";
 const ADMIN_PASSWORD = "med@231";
 
+// Standard canonical headers for the sheet
 const HEADERS = [
   "Registration ID",
   "Timestamp",
@@ -41,12 +36,25 @@ const HEADERS = [
  */
 function doGet(e) {
   try {
-    const action = e.parameter.action || "getRegistrations";
+    const action = (e && e.parameter && e.parameter.action) ? e.parameter.action : "getRegistrations";
     const sheet = getOrCreateSheet();
 
     if (action === "getRegistrations") {
       const data = getAllRegistrations(sheet);
       return jsonResponse({ status: "success", data: data });
+    }
+
+    if (action === "deleteRegistration") {
+      const id = e.parameter.id;
+      const result = deleteRegistrationById(sheet, id);
+      return jsonResponse(result);
+    }
+
+    if (action === "updateStatus") {
+      const id = e.parameter.id;
+      const status = e.parameter.status;
+      const result = updateStatusById(sheet, id, status);
+      return jsonResponse(result);
     }
 
     if (action === "getStats") {
@@ -66,13 +74,13 @@ function doGet(e) {
 function doPost(e) {
   try {
     let payload = {};
-    if (e.postData && e.postData.contents) {
+    if (e && e.postData && e.postData.contents) {
       try {
         payload = JSON.parse(e.postData.contents);
       } catch (parseErr) {
-        payload = e.parameter;
+        payload = e.parameter || {};
       }
-    } else {
+    } else if (e && e.parameter) {
       payload = e.parameter;
     }
 
@@ -97,7 +105,7 @@ function doPost(e) {
         data.name || "",
         data.campus || "",
         data.className || "",
-        data.phone ? "'" + data.phone : "",
+        data.phone ? "'" + String(data.phone).replace(/^'/, '') : "",
         data.paymentMethod || "online",
         data.paid || "yes",
         data.amount || 69,
@@ -115,10 +123,61 @@ function doPost(e) {
       });
     }
 
-    return jsonResponse({ status: "error", message: "Invalid action" });
+    if (action === "deleteRegistration") {
+      const id = payload.id;
+      const result = deleteRegistrationById(sheet, id);
+      return jsonResponse(result);
+    }
+
+    if (action === "updateStatus") {
+      const id = payload.id;
+      const status = payload.status;
+      const result = updateStatusById(sheet, id, status);
+      return jsonResponse(result);
+    }
+
+    return jsonResponse({ status: "error", message: "Invalid action: " + action });
   } catch (error) {
     return jsonResponse({ status: "error", message: error.toString() });
   }
+}
+
+/**
+ * Permanently delete a registration row by ID
+ */
+function deleteRegistrationById(sheet, id) {
+  if (!id) return { status: "error", message: "Missing ID" };
+
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    const rowId = String(data[i][0]).trim();
+    if (rowId === String(id).trim()) {
+      sheet.deleteRow(i + 1);
+      return { status: "success", message: "Row deleted successfully", id: id };
+    }
+  }
+  return { status: "error", message: "ID not found: " + id };
+}
+
+/**
+ * Update registration status by ID
+ */
+function updateStatusById(sheet, id, newStatus) {
+  if (!id) return { status: "error", message: "Missing ID" };
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  let statusColIndex = headers.findIndex(h => String(h).toLowerCase().includes("status"));
+  if (statusColIndex === -1) statusColIndex = 10; // default column 11 (0-indexed 10)
+
+  for (let i = 1; i < data.length; i++) {
+    const rowId = String(data[i][0]).trim();
+    if (rowId === String(id).trim()) {
+      sheet.getRange(i + 1, statusColIndex + 1).setValue(newStatus);
+      return { status: "success", message: "Status updated", id: id, status: newStatus };
+    }
+  }
+  return { status: "error", message: "ID not found: " + id };
 }
 
 /**
@@ -155,47 +214,81 @@ function getOrCreateSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-    sheet.appendRow(HEADERS);
-    sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight("bold").setBackground("#f0521f").setFontColor("#ffffff");
-    sheet.setFrozenRows(1);
+    sheet = ss.getActiveSheet();
   }
   return sheet;
 }
 
 /**
- * Retrieve all registrations formatted as objects
+ * Retrieve all registrations with header-normalization
  */
 function getAllRegistrations(sheet) {
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return [];
 
-  const headers = data[0];
+  const rawHeaders = data[0].map(h => String(h).trim().toLowerCase());
   const rows = data.slice(1);
 
-  return rows.map((row) => {
+  let list = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0 || !row[0]) continue;
+
+    // Skip if row is accidentally header repeat
+    const idVal = String(row[0]).trim();
+    if (idVal.toLowerCase() === "registration id" || idVal.toLowerCase() === "reg id") {
+      continue;
+    }
+
     let obj = {};
-    headers.forEach((h, index) => {
+    rawHeaders.forEach((h, index) => {
       let val = row[index];
       if (val instanceof Date) {
         val = val.toISOString();
       }
       obj[h] = val;
     });
-    return {
-      id: obj["Registration ID"],
-      timestamp: obj["Timestamp"],
-      name: obj["Name"],
-      campus: obj["Campus"],
-      className: obj["Class"],
-      phone: String(obj["Phone"] || "").replace(/^'/, ""),
-      paymentMethod: obj["Payment Method"],
-      paid: obj["Paid"],
-      amount: obj["Amount"],
-      paymentProof: obj["Payment Proof URL"],
-      status: obj["Status"]
-    };
-  });
+
+    // Flexible column resolution supporting both old & new sheets
+    const regId = idVal;
+    const timestamp = obj["timestamp"] || row[1] || new Date().toISOString();
+    
+    // Resolve Name
+    const name = obj["name"] || obj["full name"] || obj["fullname"] || row[2] || "";
+    
+    // Resolve Campus / Institution
+    const campus = obj["campus"] || obj["institution"] || obj["campus name"] || obj["college"] || (rawHeaders.includes("institution") ? obj["institution"] : (row[3] || row[7] || ""));
+    
+    // Resolve Class
+    const className = obj["class"] || obj["course / class"] || obj["course/class"] || obj["course"] || (rawHeaders.includes("course / class") ? obj["course / class"] : (row[4] || row[8] || ""));
+    
+    // Resolve Phone
+    let phone = String(obj["phone"] || obj["phone number"] || obj["mobile"] || (rawHeaders.includes("phone") ? obj["phone"] : row[5]) || "").replace(/^'/, "").trim();
+    
+    // Resolve Payment Method & Status
+    const paymentMethod = String(obj["payment method"] || obj["payment"] || (obj["category"] ? "online" : "online")).toLowerCase();
+    const paid = String(obj["paid"] || "yes").toLowerCase();
+    const amount = Number(obj["amount"] || 69);
+    const proof = obj["payment proof url"] || obj["payment proof"] || obj["proof"] || (row.length > 9 ? row[9] : "") || "";
+    const status = obj["status"] || (paymentMethod === "online" ? "Verified" : "Pending (Venue)");
+
+    list.push({
+      id: regId,
+      timestamp: timestamp,
+      name: name,
+      campus: campus,
+      className: className,
+      phone: phone,
+      paymentMethod: paymentMethod,
+      paid: paid,
+      amount: amount,
+      paymentProof: proof,
+      status: status
+    });
+  }
+
+  return list;
 }
 
 /**
@@ -204,8 +297,8 @@ function getAllRegistrations(sheet) {
 function calculateStats(sheet) {
   const records = getAllRegistrations(sheet);
   const total = records.length;
-  const online = records.filter(r => r.paymentMethod === "online" || r.paid === "yes").length;
-  const venue = records.filter(r => r.paymentMethod === "venue").length;
+  const online = records.filter(r => (r.paymentMethod || "").toLowerCase() === "online" || r.paid === "yes").length;
+  const venue = records.filter(r => (r.paymentMethod || "").toLowerCase() === "venue").length;
 
   return {
     total: total,

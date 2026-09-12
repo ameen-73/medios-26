@@ -7,6 +7,7 @@ const DEFAULT_USER = "medios'26";
 const DEFAULT_PASS = "med@231";
 const AUTH_KEY = "mc26_admin_authenticated";
 const STORAGE_KEY = "medios26_registrations_v2";
+const DELETED_KEY = "mc26_deleted_ids_v1";
 
 let registrations = [];
 
@@ -102,7 +103,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Refresh & Export
-  if (refreshBtn) refreshBtn.addEventListener("click", loadRegistrations);
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+      refreshBtn.textContent = "⏳ Loading…";
+      loadRegistrations().finally(() => {
+        refreshBtn.textContent = "🔄 Refresh";
+      });
+    });
+  }
   if (exportCsvBtn) exportCsvBtn.addEventListener("click", exportToCSV);
   if (exportJsonBtn) exportJsonBtn.addEventListener("click", exportToJSON);
 
@@ -148,7 +156,28 @@ document.addEventListener("DOMContentLoaded", () => {
     loadSettings();
   }
 
+  function getDeletedIds() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(DELETED_KEY) || "[]"));
+    } catch {
+      return new Set();
+    }
+  }
+
+  function addDeletedId(id) {
+    if (!id) return;
+    try {
+      const set = getDeletedIds();
+      set.add(String(id).trim());
+      localStorage.setItem(DELETED_KEY, JSON.stringify(Array.from(set)));
+    } catch (e) {
+      console.warn("Deleted ID save error:", e);
+    }
+  }
+
   async function loadRegistrations() {
+    const deletedIds = getDeletedIds();
+
     // 1. Fetch from LocalStorage
     let localData = [];
     try {
@@ -156,6 +185,12 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       localData = [];
     }
+
+    // Clean and filter local data
+    localData = localData
+      .map(cleanRecord)
+      .filter(r => r && isValidRecord(r) && !deletedIds.has(String(r.id).trim()));
+
     registrations = localData;
 
     // 2. Fetch from Google Apps Script Web App API if available
@@ -164,40 +199,126 @@ document.addEventListener("DOMContentLoaded", () => {
         const res = await fetch(`${window.MC_CONFIG.API_BASE}?action=getRegistrations`);
         const json = await res.json();
         if (json && json.status === "success" && Array.isArray(json.data)) {
-          const remoteIds = new Set(json.data.map(r => r.id || r["Registration ID"]));
-          const merged = [...json.data.map(mapApiRecord)];
-          
+          const remoteRecords = json.data
+            .map(cleanRecord)
+            .filter(r => r && isValidRecord(r) && !deletedIds.has(String(r.id).trim()));
+
+          const localIdSet = new Set(localData.map(r => r.id));
+          const merged = [...remoteRecords];
+
+          // Include local-only unsynced records
           localData.forEach(item => {
-            if (!remoteIds.has(item.id)) {
+            if (!merged.some(m => m.id === item.id)) {
               merged.unshift(item);
             }
           });
+
           registrations = merged;
         }
       } catch (err) {
-        console.warn("Remote backend fetch error (using localStorage):", err);
+        console.warn("Remote backend fetch error (using clean localStorage):", err);
       }
     }
+
+    // Save back cleaned dataset
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(registrations));
+    localStorage.setItem("medios26_registrations", JSON.stringify(registrations));
 
     updateStats();
     renderTable();
   }
 
-  function mapApiRecord(r) {
+  /**
+   * Filter out headers or garbage rows
+   */
+  function isValidRecord(r) {
+    if (!r || !r.id) return false;
+    const id = String(r.id).trim().toLowerCase();
+    if (id === "registration id" || id === "reg id" || id === "id" || id === "undefined" || id === "null") {
+      return false;
+    }
+    const name = String(r.name || "").trim().toLowerCase();
+    if (name === "name" || name === "full name" || name === "fullname") {
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Normalize and align fields for both new and legacy records
+   */
+  function cleanRecord(r) {
+    if (!r) return null;
+
+    let id = r.id || r["Registration ID"] || r["id"] || "";
+    if (typeof id === "number") id = "MC26-" + id;
+    id = String(id).trim();
+
+    let timestamp = r.timestamp || r["Timestamp"] || r.createdAt || "";
+    if (timestamp === "Timestamp" || !isValidDate(timestamp)) {
+      timestamp = new Date().toISOString();
+    }
+
+    // Find Name
+    let name = r.name || r["Name"] || r["Full Name"] || r["FullName"] || r.fullName || "";
+    if (name === "Name" || name === "Full Name") name = "";
+
+    // Find Campus
+    let campus = r.campus || r["Campus"] || r["Campus Name"] || r["Institution"] || r.institution || "";
+    if (campus === "Campus" || campus === "Institution") campus = "";
+
+    // Find Class
+    let className = r.className || r["Class"] || r["Course / Class"] || r["Course/Class"] || r["Course"] || r.class || "";
+    if (className === "Class" || className === "Course / Class") className = "";
+
+    // Find Phone
+    let phone = String(r.phone || r["Phone"] || r["Phone Number"] || r.mobile || "").replace(/^'/, "").trim();
+    if (phone === "Phone" || phone === "Phone Number") phone = "";
+
+    // If phone and class/name got swapped in older schema, auto-correct:
+    // e.g. If class contains a 10-digit number and phone is just a single digit like "5"
+    if (phone.length < 5 && /^\d{10}$/.test(className)) {
+      const temp = phone;
+      phone = className;
+      className = temp;
+    } else if (phone.length < 5 && /^\d{10}$/.test(campus)) {
+      const temp = phone;
+      phone = campus;
+      campus = temp;
+    }
+
+    let paymentMethod = String(r.paymentMethod || r["Payment Method"] || r.payment || "online").toLowerCase();
+    if (paymentMethod.includes("venue")) paymentMethod = "venue";
+    else paymentMethod = "online";
+
+    let paid = String(r.paid || (paymentMethod === "online" ? "yes" : "no")).toLowerCase();
+    let amount = Number(r.amount || 69);
+    let paymentProof = r.paymentProof || r["Payment Proof URL"] || r["Payment Proof"] || r.proof || "";
+    
+    let status = r.status || r["Status"] || (paymentMethod === "online" ? "Verified" : "Pending (Venue)");
+    if (status === "STATUS" || status === "Status") {
+      status = paymentMethod === "online" ? "Verified" : "Pending (Venue)";
+    }
+
     return {
-      id: r.id || r["Registration ID"] || "MC26-" + Math.floor(1000 + Math.random() * 9000),
-      timestamp: r.timestamp || r["Timestamp"] || new Date().toISOString(),
-      name: r.name || r["Name"] || r["Full Name"] || "",
-      campus: r.campus || r["Campus"] || r["Campus Name"] || "",
-      className: r.className || r["Class"] || r["Course / Class"] || "",
-      phone: String(r.phone || r["Phone"] || r["Phone Number"] || "").replace(/^'/, ""),
-      paymentMethod: (r.paymentMethod || r["Payment Method"] || "online").toLowerCase(),
-      paid: r.paid || r["Paid"] || (r.paymentMethod === "online" ? "yes" : "no"),
-      amount: r.amount || r["Amount"] || 69,
-      paymentProof: r.paymentProof || r["Payment Proof URL"] || "",
-      status: r.status || r["Status"] || "Verified",
-      createdAt: r.createdAt || new Date(r.timestamp || Date.now()).toLocaleString()
+      id: id,
+      timestamp: timestamp,
+      name: name,
+      campus: campus,
+      className: className,
+      phone: phone,
+      paymentMethod: paymentMethod,
+      paid: paid,
+      amount: amount,
+      paymentProof: paymentProof,
+      status: status
     };
+  }
+
+  function isValidDate(d) {
+    if (!d) return false;
+    const time = new Date(d).getTime();
+    return !isNaN(time);
   }
 
   function updateStats() {
@@ -233,7 +354,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const isOnline = (item.paymentMethod || "").toLowerCase() === "online" || item.paid === "yes";
       const isVenue = (item.paymentMethod || "").toLowerCase() === "venue" && item.paid !== "yes";
-      const isVerified = (item.status || "").toLowerCase().includes("verified");
+      const isVerified = (item.status || "").toLowerCase().includes("verified") || (item.status || "").toLowerCase().includes("confirmed");
       const isPending = (item.status || "").toLowerCase().includes("pending");
 
       let matchFilter = true;
@@ -254,10 +375,10 @@ document.addEventListener("DOMContentLoaded", () => {
       emptyState.style.display = "none";
     }
 
-    filtered.forEach((r, idx) => {
+    filtered.forEach((r) => {
       const tr = document.createElement("tr");
       const isOnline = (r.paymentMethod || "").toLowerCase() === "online" || r.paid === "yes";
-      const isVerified = (r.status || "").toLowerCase().includes("verified");
+      const isVerified = (r.status || "").toLowerCase().includes("verified") || (r.status || "").toLowerCase().includes("confirmed");
 
       const proofHtml = r.paymentProof
         ? `<button class="btn-proof-thumb" onclick="window.viewProof('${escapeHtml(r.id)}')">📷 View</button>`
@@ -269,15 +390,15 @@ document.addEventListener("DOMContentLoaded", () => {
         <td><strong>${escapeHtml(r.id)}</strong></td>
         <td>
           <a href="javascript:void(0)" onclick="window.viewDetails('${escapeHtml(r.id)}')" style="color:#fff; font-weight:700; text-decoration:underline;">
-            ${escapeHtml(r.name)}
+            ${escapeHtml(r.name || 'Participant')}
           </a>
         </td>
-        <td>${escapeHtml(r.campus)}</td>
-        <td>${escapeHtml(r.className)}</td>
+        <td>${escapeHtml(r.campus || '—')}</td>
+        <td>${escapeHtml(r.className || '—')}</td>
         <td>
           <div style="display:flex; align-items:center; gap:6px;">
-            <a href="tel:${escapeHtml(r.phone)}" style="color:var(--o); font-weight:600;">${escapeHtml(r.phone)}</a>
-            <a href="https://wa.me/91${escapeHtml(r.phone)}" target="_blank" title="Chat on WhatsApp" style="color:#25D366; font-size:0.9rem;">💬</a>
+            ${r.phone ? `<a href="tel:${escapeHtml(r.phone)}" style="color:var(--o); font-weight:600;">${escapeHtml(r.phone)}</a>` : '<span style="color:#777;">—</span>'}
+            ${r.phone ? `<a href="https://wa.me/91${escapeHtml(r.phone)}" target="_blank" title="Chat on WhatsApp" style="color:#25D366; font-size:0.9rem;">💬</a>` : ''}
           </div>
         </td>
         <td><span class="${isOnline ? 'badge-paid' : 'badge-venue'}">${isOnline ? 'ONLINE (₹69)' : 'VENUE (₹69)'}</span></td>
@@ -306,13 +427,13 @@ document.addEventListener("DOMContentLoaded", () => {
     body.innerHTML = `
       <div style="display:grid; grid-template-columns: 140px 1fr; gap: 8px 16px; margin-bottom: 20px;">
         <strong style="color:#aaa;">Registration ID:</strong> <span><b style="color:var(--y);">${escapeHtml(r.id)}</b></span>
-        <strong style="color:#aaa;">Full Name:</strong> <span><strong>${escapeHtml(r.name)}</strong></span>
-        <strong style="color:#aaa;">Campus / College:</strong> <span>${escapeHtml(r.campus)}</span>
-        <strong style="color:#aaa;">Class / Course:</strong> <span>${escapeHtml(r.className)}</span>
+        <strong style="color:#aaa;">Full Name:</strong> <span><strong>${escapeHtml(r.name || '—')}</strong></span>
+        <strong style="color:#aaa;">Campus / College:</strong> <span>${escapeHtml(r.campus || '—')}</span>
+        <strong style="color:#aaa;">Class / Course:</strong> <span>${escapeHtml(r.className || '—')}</span>
         <strong style="color:#aaa;">Phone Number:</strong> 
         <span>
-          <a href="tel:${escapeHtml(r.phone)}" style="color:var(--o); font-weight:700;">${escapeHtml(r.phone)}</a>
-          <a href="https://wa.me/91${escapeHtml(r.phone)}" target="_blank" style="background:#25D366; color:#fff; padding:2px 8px; border-radius:2px; margin-left:8px; font-size:0.75rem;">WhatsApp ↗</a>
+          ${r.phone ? `<a href="tel:${escapeHtml(r.phone)}" style="color:var(--o); font-weight:700;">${escapeHtml(r.phone)}</a>` : '—'}
+          ${r.phone ? `<a href="https://wa.me/91${escapeHtml(r.phone)}" target="_blank" style="background:#25D366; color:#fff; padding:2px 8px; border-radius:2px; margin-left:8px; font-size:0.75rem;">WhatsApp ↗</a>` : ''}
         </span>
         <strong style="color:#aaa;">Payment Mode:</strong> <span><b>${isOnline ? 'Online UPI (₹69)' : 'Pay at the Venue (₹69)'}</b></span>
         <strong style="color:#aaa;">Fee Amount:</strong> <span>₹${escapeHtml(String(r.amount || 69))}</span>
@@ -345,8 +466,13 @@ document.addEventListener("DOMContentLoaded", () => {
     img.src = r.paymentProof;
     download.href = r.paymentProof;
     download.download = `${r.id}_proof.jpg`;
-    info.textContent = `Participant: ${r.name} · Campus: ${r.campus} · Phone: ${r.phone} (ID: ${r.id})`;
-    if (waBtn) waBtn.href = `https://wa.me/91${r.phone}?text=${encodeURIComponent(`Hi ${r.name}, your registration (${r.id}) for Media Conclave 2026 has been verified.`)}`;
+    info.textContent = `Participant: ${r.name || 'Participant'} · Campus: ${r.campus || '—'} · Phone: ${r.phone} (ID: ${r.id})`;
+    if (waBtn && r.phone) {
+      waBtn.href = `https://wa.me/91${r.phone}?text=${encodeURIComponent(`Hi ${r.name || ''}, your registration (${r.id}) for Media Conclave 2026 has been verified.`)}`;
+      waBtn.style.display = "inline-block";
+    } else if (waBtn) {
+      waBtn.style.display = "none";
+    }
     
     modal.style.display = "flex";
   };
@@ -355,20 +481,39 @@ document.addEventListener("DOMContentLoaded", () => {
     const r = registrations.find(item => item.id === id);
     if (!r) return;
 
-    if ((r.status || "").toLowerCase().includes("verified")) {
+    if ((r.status || "").toLowerCase().includes("verified") || (r.status || "").toLowerCase().includes("confirmed")) {
       r.status = "Pending (Venue)";
     } else {
       r.status = "Verified";
     }
 
     saveAndSync();
+
+    // Async update to Google Apps Script
+    if (window.MC_CONFIG?.API_BASE && !window.MC_CONFIG.API_BASE.includes("AKfycbx...")) {
+      fetch(`${window.MC_CONFIG.API_BASE}?action=updateStatus&id=${encodeURIComponent(id)}&status=${encodeURIComponent(r.status)}`, {
+        mode: "no-cors"
+      }).catch(err => console.warn("Backend status update:", err));
+    }
   };
 
   window.deleteRecord = function(id) {
     if (!confirm(`Are you sure you want to permanently delete registration record ${id}?`)) return;
 
+    // 1. Add to permanent deleted blacklist
+    addDeletedId(id);
+
+    // 2. Remove from active state
     registrations = registrations.filter(r => r.id !== id);
     saveAndSync();
+
+    // 3. Send remote delete command to Google Apps Script
+    if (window.MC_CONFIG?.API_BASE && !window.MC_CONFIG.API_BASE.includes("AKfycbx...")) {
+      // Fire GET or POST delete request
+      fetch(`${window.MC_CONFIG.API_BASE}?action=deleteRegistration&id=${encodeURIComponent(id)}`, {
+        mode: "no-cors"
+      }).catch(err => console.warn("Remote delete warning:", err));
+    }
   };
 
   function saveAndSync() {
@@ -437,7 +582,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function formatDate(isoStr) {
-    if (!isoStr) return "";
+    if (!isoStr || !isValidDate(isoStr)) return "—";
     try {
       const d = new Date(isoStr);
       return d.toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
