@@ -9,6 +9,9 @@ window.MC_CONFIG = {
   // WhatsApp Organizer Number for automated registration confirmation
   WHATSAPP_NUMBER: "8943318613",
 
+  // Official Delegates WhatsApp Group Link
+  WHATSAPP_GROUP_URL: "https://chat.whatsapp.com/J3MuwpCT0JPCCyANZIxfWH",
+
   // Event Details
   EVENT: {
     name: "MEDIA CONCLAVE 2026",

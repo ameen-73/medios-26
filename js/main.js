@@ -183,14 +183,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // 3. Display success message
-      const successMsg = paymentMethod === "online"
-        ? `Registration and payment screenshot saved successfully! Registration ID: ${regId}`
-        : `Registration saved! Your place is reserved. Please pay ₹${fee} at the venue. Registration ID: ${regId}`;
-      
-      setStatus(successMsg, "success");
-
-      // 4. WhatsApp confirmation trigger
+      // 3. Display success message & Show WhatsApp Group Join Card
+      const waGroupUrl = window.MC_CONFIG?.WHATSAPP_GROUP_URL || "https://chat.whatsapp.com/J3MuwpCT0JPCCyANZIxfWH";
       const waNumber = window.MC_CONFIG?.WHATSAPP_NUMBER || "8943318613";
       const paymentSummary = paymentMethod === "online"
         ? `Online — ₹${fee} proof uploaded`
@@ -199,10 +193,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const waText = `*MEDIA CONCLAVE REGISTRATION*\nID: ${regId}\nName: ${name}\nCampus: ${campus}\nClass: ${className}\nPhone: ${phone}\nPayment: ${paymentSummary}`;
       const waUrl = `https://wa.me/91${waNumber}?text=${encodeURIComponent(waText)}`;
 
-      // Open WhatsApp in background / new tab
-      setTimeout(() => {
-        window.open(waUrl, "_blank");
-      }, 800);
+      const successMsg = paymentMethod === "online"
+        ? `Registration and payment screenshot saved successfully! Registration ID: ${regId}`
+        : `Registration saved! Your place is reserved. Please pay ₹${fee} at the venue. Registration ID: ${regId}`;
+      
+      setStatus(successMsg, "success", waGroupUrl);
+
+      // Display dedicated post-registration card with Join WhatsApp Group button
+      displaySuccessCard(record, waGroupUrl, waUrl);
 
       // Reset form
       form.reset();
@@ -216,9 +214,120 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function setStatus(msg, type) {
+  function displaySuccessCard(record, groupUrl, waOrganizerUrl) {
+    let successCard = document.getElementById("registration-success-card");
+    if (!successCard) {
+      successCard = document.createElement("div");
+      successCard.id = "registration-success-card";
+      successCard.className = "registration-success-card";
+      if (form && form.parentNode) {
+        form.parentNode.insertBefore(successCard, form.nextSibling);
+      }
+    }
+
+    const fee = record.amount || 69;
+    const isOnline = record.paymentMethod === "online" || record.paid === "yes";
+
+    successCard.innerHTML = `
+      <div class="success-header-badge">
+        <span class="success-icon">✓</span>
+        <span>REGISTRATION CONFIRMED</span>
+      </div>
+      <h3>CLAIMED.<br/>SEE YOU THERE!</h3>
+      <p class="success-subtext">Thank you for registering for Media Conclave 2026. Your place has been reserved.</p>
+
+      <div class="reg-receipt-box">
+        <div class="reg-receipt-row">
+          <span class="label">Registration ID</span>
+          <span class="value reg-id-val">${escapeHtml(record.id)}</span>
+        </div>
+        <div class="reg-receipt-row">
+          <span class="label">Delegate</span>
+          <span class="value">${escapeHtml(record.name)}</span>
+        </div>
+        <div class="reg-receipt-row">
+          <span class="label">Campus & Class</span>
+          <span class="value">${escapeHtml(record.campus)} (${escapeHtml(record.className)})</span>
+        </div>
+        <div class="reg-receipt-row">
+          <span class="label">Payment</span>
+          <span class="value status-tag">${isOnline ? `Paid Online (₹${fee})` : `Pay ₹${fee} at Venue`}</span>
+        </div>
+      </div>
+
+      <!-- Join WhatsApp Group Button -->
+      <div class="wa-group-cta-wrapper">
+        <a href="${groupUrl}" target="_blank" rel="noopener noreferrer" class="wa-group-cta-btn" id="join-wa-group-btn">
+          <div class="btn-content">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c2.2 0 4.26.86 5.82 2.42a8.225 8.225 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24h.02zm-3.5 3.6c-.2 0-.44.07-.67.33-.23.26-.88.86-.88 2.1s.9 2.44 1.03 2.61c.13.17 1.77 2.7 4.29 3.79.6.26 1.07.41 1.44.53.6.19 1.15.16 1.59.1.48-.07 1.49-.61 1.7-1.2.21-.59.21-1.09.15-1.2-.06-.11-.23-.17-.48-.3-.25-.12-1.49-.73-1.72-.82-.23-.08-.4-.13-.57.13-.17.25-.66.82-.81.99-.15.17-.3.19-.55.07-.25-.13-1.07-.39-2.03-1.25-.75-.67-1.26-1.5-1.41-1.75-.15-.26-.02-.4.11-.53.11-.11.25-.3.38-.45.12-.15.17-.26.25-.43.08-.17.04-.32-.02-.45-.06-.13-.57-1.37-.78-1.88-.2-.49-.41-.43-.57-.43z"/>
+            </svg>
+            <span>JOIN WHATSAPP GROUP</span>
+          </div>
+          <span class="btn-arrow">↗</span>
+        </a>
+        <div class="wa-group-explainer">
+          <span class="pulse-dot"></span>
+          <span><strong>Important:</strong> Tap the green button above to join the official WhatsApp group for schedules, seat numbers, and live event announcements.</span>
+        </div>
+      </div>
+
+      <div class="success-actions-row">
+        <button type="button" class="btn-secondary-reset" id="btn-register-another">
+          + Register Another Delegate
+        </button>
+        <a href="${waOrganizerUrl}" target="_blank" rel="noopener noreferrer" class="btn-secondary-link" title="Notify Organizer on WhatsApp">
+          <span>Notify Organizer</span> <span>↗</span>
+        </a>
+      </div>
+    `;
+
+    // Hide form, reveal success card
+    if (form) form.style.display = "none";
+    successCard.style.display = "flex";
+
+    // Bind "Register Another"
+    const anotherBtn = document.getElementById("btn-register-another");
+    if (anotherBtn) {
+      anotherBtn.addEventListener("click", () => {
+        successCard.style.display = "none";
+        if (form) {
+          form.style.display = "block";
+          form.reset();
+        }
+        setStatus("Your details and payment proof will be stored for the organizers.", "");
+      });
+    }
+
+    // Smooth scroll into view
+    successCard.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function setStatus(msg, type, waGroupUrl) {
     if (!formStatus) return;
-    formStatus.textContent = msg;
     formStatus.className = `form-note ${type || ""}`;
+    
+    if (type === "success" && waGroupUrl) {
+      formStatus.innerHTML = `
+        <div>${escapeHtml(msg)}</div>
+        <div>
+          <a href="${waGroupUrl}" target="_blank" rel="noopener noreferrer" class="inline-wa-btn">
+            Join Delegates WhatsApp Group ↗
+          </a>
+        </div>
+      `;
+    } else {
+      formStatus.textContent = msg;
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 });

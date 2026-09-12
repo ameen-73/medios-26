@@ -647,8 +647,30 @@ form > button:disabled {
   color: #17643b;
   font-weight: 600;
   background: #dff6e9;
-  padding: 10px;
+  padding: 12px 14px;
   border: 1px solid #b2e6cb;
+  border-radius: 2px;
+}
+
+.form-note.success a.inline-wa-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #25D366;
+  color: #fff;
+  padding: 6px 12px;
+  margin-top: 8px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border-radius: 2px;
+  box-shadow: 2px 2px 0 #128C7E;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-note.success a.inline-wa-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 #128C7E;
 }
 
 .form-note.error {
@@ -657,6 +679,276 @@ form > button:disabled {
   background: #fde8e8;
   padding: 10px;
   border: 1px solid #f8b4b4;
+}
+
+/* ============================================================
+   POST-REGISTRATION SUCCESS CARD & WHATSAPP GROUP ACTION
+   ============================================================ */
+.registration-success-card {
+  color: var(--k);
+  background: #fff;
+  padding: 5vw 4.5vw;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  animation: regFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes regFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.success-header-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #e6f9ed;
+  border: 1.5px solid #25D366;
+  padding: 8px 16px;
+  border-radius: 999px;
+  width: fit-content;
+  margin-bottom: 1.25rem;
+}
+
+.success-header-badge .success-icon {
+  width: 20px;
+  height: 20px;
+  background: #25D366;
+  color: #fff;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.success-header-badge span {
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: #0e6b36;
+}
+
+.registration-success-card h3 {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  line-height: 1.15;
+  margin-bottom: 0.6rem;
+  color: var(--k);
+}
+
+.registration-success-card .success-subtext {
+  color: #635d56;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 1.8rem;
+}
+
+.reg-receipt-box {
+  background: #faf8f4;
+  border: 2px solid var(--k);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+  position: relative;
+  box-shadow: 4px 4px 0 var(--y);
+}
+
+.reg-receipt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.45rem 0;
+  border-bottom: 1px dashed #ded7cf;
+  font-size: 0.9rem;
+}
+
+.reg-receipt-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.reg-receipt-row .label {
+  color: #7a736c;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.reg-receipt-row .value {
+  font-weight: 700;
+  color: var(--k);
+  text-align: right;
+}
+
+.reg-receipt-row .value.reg-id-val {
+  font-family: var(--font-heading);
+  color: var(--o);
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  background: #fff;
+  padding: 2px 8px;
+  border: 1px solid var(--o);
+}
+
+.reg-receipt-row .value.status-tag {
+  color: #17643b;
+  background: #dff6e9;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 0.8rem;
+}
+
+/* WhatsApp Group Hero Button */
+.wa-group-cta-wrapper {
+  margin-bottom: 1.5rem;
+}
+
+.wa-group-cta-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: #25D366;
+  color: #ffffff !important;
+  text-decoration: none;
+  padding: 1.2rem 1.6rem;
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  border: 2px solid #128C7E;
+  border-radius: 3px;
+  box-shadow: 6px 6px 0 #075E54;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.wa-group-cta-btn:hover {
+  background: #20ba59;
+  transform: translate(-3px, -3px);
+  box-shadow: 9px 9px 0 #075E54;
+}
+
+.wa-group-cta-btn:active {
+  transform: translate(0, 0);
+  box-shadow: 3px 3px 0 #075E54;
+}
+
+.wa-group-cta-btn .btn-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wa-group-cta-btn svg {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  fill: currentColor;
+}
+
+.wa-group-cta-btn .btn-arrow {
+  color: #fff;
+  font-size: 1.4rem;
+  transition: transform 0.2s ease;
+}
+
+.wa-group-cta-btn:hover .btn-arrow {
+  transform: translate(3px, -3px);
+}
+
+.wa-group-explainer {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 0.75rem;
+  color: #635d56;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.wa-group-explainer .pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: #25D366;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+  animation: waPulse 1.8s infinite;
+}
+
+@keyframes waPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7);
+  }
+  70% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 8px rgba(37, 211, 102, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(37, 211, 102, 0);
+  }
+}
+
+.success-actions-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #eee7df;
+}
+
+.btn-secondary-reset {
+  background: transparent;
+  border: 1px solid #cbc5bf;
+  color: var(--k);
+  padding: 0.8rem 1.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+  text-align: center;
+  border-radius: 2px;
+}
+
+.btn-secondary-reset:hover {
+  border-color: var(--k);
+  background: #f4efe8;
+}
+
+.btn-secondary-link {
+  background: #faf8f4;
+  border: 1px solid #cbc5bf;
+  color: var(--k);
+  padding: 0.8rem 1.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  flex: 1;
+  text-align: center;
+  border-radius: 2px;
+}
+
+.btn-secondary-link:hover {
+  border-color: var(--o);
+  color: var(--o);
+  background: #fff;
 }
 
 /* 03 / GALLERY Section */

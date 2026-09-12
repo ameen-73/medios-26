@@ -138,11 +138,13 @@ document.addEventListener("DOMContentLoaded", () => {
     saveSettingsBtn.addEventListener("click", () => {
       const fee = document.getElementById("setting-fee").value;
       const whatsapp = document.getElementById("setting-whatsapp").value;
+      const groupWhatsapp = document.getElementById("setting-group-whatsapp")?.value;
       const api = document.getElementById("setting-api").value;
 
       if (window.MC_CONFIG) {
         if (window.MC_CONFIG.EVENT) window.MC_CONFIG.EVENT.fee = Number(fee);
         window.MC_CONFIG.WHATSAPP_NUMBER = whatsapp;
+        if (groupWhatsapp) window.MC_CONFIG.WHATSAPP_GROUP_URL = groupWhatsapp;
         window.MC_CONFIG.API_BASE = api;
       }
       alert("Settings updated successfully!");
@@ -606,10 +608,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (window.MC_CONFIG) {
       const feeInput = document.getElementById("setting-fee");
       const waInput = document.getElementById("setting-whatsapp");
+      const groupWaInput = document.getElementById("setting-group-whatsapp");
       const apiInput = document.getElementById("setting-api");
 
       if (feeInput && window.MC_CONFIG.EVENT) feeInput.value = window.MC_CONFIG.EVENT.fee || 69;
       if (waInput) waInput.value = window.MC_CONFIG.WHATSAPP_NUMBER || "8943318613";
+      if (groupWaInput) groupWaInput.value = window.MC_CONFIG.WHATSAPP_GROUP_URL || "https://chat.whatsapp.com/J3MuwpCT0JPCCyANZIxfWH";
       if (apiInput) apiInput.value = window.MC_CONFIG.API_BASE || "";
     }
   }
