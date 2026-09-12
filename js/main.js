@@ -22,7 +22,6 @@ function initDropdowns() {
   populateSelect('district', config.DISTRICTS);
   populateSelect('category', config.CATEGORIES);
   populateSelect('competition', config.COMPETITIONS);
-  populateSelect('food', config.FOOD_PREFERENCES);
 }
 
 function populateSelect(elementId, items) {
@@ -202,8 +201,7 @@ function initRegistrationForm() {
       { id: 'course', validate: val => val.trim().length >= 2 },
       { id: 'district', validate: val => !!val },
       { id: 'category', validate: val => !!val },
-      { id: 'competition', validate: val => !!val },
-      { id: 'food', validate: val => !!val }
+      { id: 'competition', validate: val => !!val }
     ];
 
     fields.forEach(f => {
@@ -248,7 +246,6 @@ function initRegistrationForm() {
       category: formData.get('category') || '',
       competition: formData.get('competition') || '',
       accommodation: formData.get('accommodation') || 'No',
-      food: formData.get('food') || '',
       message: formData.get('message')?.trim() || '',
       status: 'Confirmed'
     };

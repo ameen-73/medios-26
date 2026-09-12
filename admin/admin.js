@@ -395,7 +395,7 @@ window.openViewModal = function(id) {
     <div class="detail-item"><span>Delegate Category</span><span>${record.category}</span></div>
     <div class="detail-item"><span>Competition Track</span><span>${record.competition}</span></div>
     <div class="detail-item"><span>Accommodation Needed</span><span>${record.accommodation}</span></div>
-    <div class="detail-item"><span>Food Preference</span><span>${record.food || 'Non-Vegetarian'}</span></div>
+    ${record.food ? `<div class="detail-item"><span>Food Preference</span><span>${record.food}</span></div>` : ''}
     <div class="detail-item" style="grid-column: 1 / -1;"><span>Delegate Notes / Remarks</span><span>${record.message || 'No special remarks provided.'}</span></div>
     <div class="detail-item" style="grid-column: 1 / -1;"><span>Submission Timestamp</span><span style="font-family:var(--font-mono); font-size:0.85rem;">${record.timestamp || '—'}</span></div>
   `;

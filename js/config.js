@@ -5,7 +5,7 @@
 window.MC_CONFIG = {
   // Replace with your deployed Google Apps Script Web App URL
   // Example: "https://script.google.com/macros/s/AKfycbx.../exec"
-  API_BASE: "",
+  API_BASE: "https://script.google.com/macros/s/AKfycbxgpElqbe6d4vIJGAi49LqQYCfwtQcYOvcTQ6uFYITjeTZeM355mHlAK-Bb9QVY1-llZA/exec",
 
   EVENT: {
     name: "Medios'26",
@@ -48,13 +48,6 @@ window.MC_CONFIG = {
     "Palakkad", "Thrissur", "Ernakulam / Kochi", "Kottayam", "Idukki",
     "Alappuzha", "Pathanamthitta", "Kollam", "Thiruvananthapuram",
     "Other State / Outside Kerala", "International Delegate"
-  ],
-
-  FOOD_PREFERENCES: [
-    "Vegetarian",
-    "Non-Vegetarian",
-    "Vegan",
-    "No Food Required"
   ],
 
   LOCAL_STORAGE_KEY: "medios26_registrations"
