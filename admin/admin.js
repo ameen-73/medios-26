@@ -61,7 +61,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const exportCsvBtn = document.getElementById("export-csv-btn");
   const exportJsonBtn = document.getElementById("export-json-btn");
   const searchInput = document.getElementById("search-input");
+  const searchClearBtn = document.getElementById("search-clear-btn");
   const filterPayment = document.getElementById("filter-payment");
+  const syncStatusPill = document.getElementById("sync-status-pill");
   const navReg = document.getElementById("nav-reg");
   const navSettings = document.getElementById("nav-settings");
   const tabReg = document.getElementById("tab-registrations");
@@ -72,24 +74,32 @@ document.addEventListener("DOMContentLoaded", () => {
   const detailsCloseBtn = document.getElementById("details-close-btn");
   const saveSettingsBtn = document.getElementById("save-settings-btn");
 
+  let autoSyncTimer = null;
+
   // Real-time broadcast channel listener for live sync across tabs
   try {
     if (typeof BroadcastChannel !== "undefined") {
       syncChannel = new BroadcastChannel("medios26_sync");
       syncChannel.onmessage = (event) => {
-        if (event.data && (event.data.type === "NEW_REGISTRATION" || event.data.type === "STATUS_UPDATE")) {
-          loadRegistrations();
+        if (event.data && (event.data.type === "NEW_REGISTRATION" || event.data.type === "STATUS_UPDATE" || event.data.type === "DATA_REFRESH")) {
+          loadRegistrations(true);
         }
       };
     }
   } catch (e) {
-    console.warn("BroadcastChannel error:", e);
+    console.warn("BroadcastChannel notice:", e);
   }
 
-  // Also listen to window storage event for real-time update
-  window.addEventListener("storage", (e) => {
-    if (e.key === STORAGE_KEY || e.key === "medios26_registrations" || e.key === STATUS_OVERRIDES_KEY) {
-      loadRegistrations();
+  // Window visibility & focus listeners for auto-refresh across devices
+  window.addEventListener("focus", () => {
+    if (sessionStorage.getItem(AUTH_KEY) === "true") {
+      loadRegistrations(true);
+    }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && sessionStorage.getItem(AUTH_KEY) === "true") {
+      loadRegistrations(true);
     }
   });
 
@@ -118,6 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Handle Logout
   if (logoutBtn) {
     logoutBtn.addEventListener("click", () => {
+      if (autoSyncTimer) clearInterval(autoSyncTimer);
       sessionStorage.removeItem(AUTH_KEY);
       adminSection.style.display = "none";
       authSection.style.display = "flex";
@@ -144,8 +155,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Refresh & Export
   if (refreshBtn) {
     refreshBtn.addEventListener("click", () => {
-      refreshBtn.textContent = "⏳ Loading…";
-      loadRegistrations().finally(() => {
+      refreshBtn.textContent = "⏳ Syncing…";
+      loadRegistrations(false).finally(() => {
         refreshBtn.textContent = "🔄 Refresh";
       });
     });
@@ -154,7 +165,32 @@ document.addEventListener("DOMContentLoaded", () => {
   if (exportJsonBtn) exportJsonBtn.addEventListener("click", exportToJSON);
 
   // Search & Filter
-  if (searchInput) searchInput.addEventListener("input", renderTable);
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      if (searchClearBtn) {
+        searchClearBtn.style.display = searchInput.value ? "flex" : "none";
+      }
+      renderTable();
+    });
+
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        searchInput.value = "";
+        if (searchClearBtn) searchClearBtn.style.display = "none";
+        renderTable();
+      }
+    });
+  }
+
+  if (searchClearBtn) {
+    searchClearBtn.addEventListener("click", () => {
+      if (searchInput) searchInput.value = "";
+      searchClearBtn.style.display = "none";
+      renderTable();
+      if (searchInput) searchInput.focus();
+    });
+  }
+
   if (filterPayment) filterPayment.addEventListener("change", renderTable);
 
   // Modals Close
@@ -193,87 +229,66 @@ document.addEventListener("DOMContentLoaded", () => {
   function showAdminDashboard() {
     authSection.style.display = "none";
     adminSection.style.display = "grid";
-    loadRegistrations();
+    loadRegistrations(false);
     loadSettings();
+
+    // Start background auto-poll every 25 seconds across all systems
+    if (autoSyncTimer) clearInterval(autoSyncTimer);
+    autoSyncTimer = setInterval(() => {
+      if (sessionStorage.getItem(AUTH_KEY) === "true") {
+        loadRegistrations(true);
+      }
+    }, 25000);
   }
 
-  function getDeletedIds() {
-    try {
-      return new Set(JSON.parse(localStorage.getItem(DELETED_KEY) || "[]"));
-    } catch {
-      return new Set();
-    }
+  function setSyncStatus(state, text) {
+    if (!syncStatusPill) return;
+    syncStatusPill.className = `sync-status-pill ${state}`;
+    syncStatusPill.textContent = text;
   }
 
-  function addDeletedId(id) {
-    if (!id) return;
-    try {
-      const set = getDeletedIds();
-      set.add(String(id).trim());
-      localStorage.setItem(DELETED_KEY, JSON.stringify(Array.from(set)));
-    } catch (e) {
-      console.warn("Deleted ID save error:", e);
-    }
-  }
+  /**
+   * Database-First Registration Loader:
+   * Google Sheets is the master database across all devices and sessions.
+   */
+  async function loadRegistrations(isSilent = false) {
+    if (!isSilent) setSyncStatus("syncing", "⏳ Syncing Database…");
 
-  async function loadRegistrations() {
-    const deletedIds = getDeletedIds();
-    const overrides = getStatusOverrides();
-
-    // 1. Fetch from LocalStorage
-    let localData = [];
-    try {
-      localData = JSON.parse(localStorage.getItem(STORAGE_KEY) || localStorage.getItem("medios26_registrations") || "[]");
-    } catch (e) {
-      localData = [];
-    }
-
-    // Clean and filter local data
-    localData = localData
-      .map(cleanRecord)
-      .filter(r => r && isValidRecord(r) && !deletedIds.has(String(r.id).trim()))
-      .map(r => {
-        if (overrides[r.id] && overrides[r.id].status) {
-          r.status = overrides[r.id].status;
-        }
-        return r;
-      });
-
-    registrations = localData;
-
-    // 2. Fetch from Google Apps Script Web App API if available
+    // Fetch from Google Apps Script Web App API
     if (window.MC_CONFIG?.API_BASE && !window.MC_CONFIG.API_BASE.includes("AKfycbx...")) {
       try {
-        const res = await fetch(`${window.MC_CONFIG.API_BASE}?action=getRegistrations&_t=${Date.now()}`);
+        const res = await fetch(`${window.MC_CONFIG.API_BASE}?action=getRegistrations&_t=${Date.now()}`, {
+          cache: "no-store"
+        });
         const json = await res.json();
         if (json && json.status === "success" && Array.isArray(json.data)) {
           const remoteRecords = json.data
             .map(cleanRecord)
-            .filter(r => r && isValidRecord(r) && !deletedIds.has(String(r.id).trim()))
-            .map(r => {
-              // Apply persistent status overrides if any exist locally
-              if (overrides[r.id] && overrides[r.id].status) {
-                r.status = overrides[r.id].status;
-              }
-              return r;
-            });
+            .filter(r => r && isValidRecord(r));
 
-          const merged = [...remoteRecords];
+          registrations = remoteRecords;
 
-          // Include local-only unsynced records
-          localData.forEach(item => {
-            if (!merged.some(m => m.id === item.id)) {
-              merged.unshift(item);
-            }
-          });
-
-          registrations = merged;
+          // Save local backup snapshot for offline access
           localStorage.setItem(STORAGE_KEY, JSON.stringify(registrations));
           localStorage.setItem("medios26_registrations", JSON.stringify(registrations));
+
+          setSyncStatus("", "🟢 Database Synced");
+          updateStats();
+          renderTable();
+          return;
         }
       } catch (err) {
-        console.warn("Remote backend fetch error (using clean localStorage):", err);
+        console.warn("Remote backend fetch error (fallback to local cache):", err);
+        setSyncStatus("error", "🟡 Cached / Offline");
       }
+    }
+
+    // Offline / LocalStorage Fallback
+    try {
+      const localData = JSON.parse(localStorage.getItem(STORAGE_KEY) || localStorage.getItem("medios26_registrations") || "[]");
+      registrations = localData.map(cleanRecord).filter(r => r && isValidRecord(r));
+    } catch {
+      registrations = [];
     }
 
     updateStats();
@@ -309,7 +324,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /**
    * Universal Smart Record Cleaner:
-   * Accurately detects and resolves swapped/shifted columns from legacy Google Sheets
+   * Accurately parses and formats records from Google Sheets
    */
   function cleanRecord(r) {
     if (!r) return null;
@@ -332,11 +347,10 @@ document.addEventListener("DOMContentLoaded", () => {
     let paymentProof = r.paymentProof || r["Payment Proof URL"] || r["Payment Proof"] || r.proof || "";
     let status = r.status || r["Status"] || "";
 
-    // 1. Detect if shifted from legacy Google Sheet (where className was 69, campus was "yes", phone was class name)
+    // 1. Detect if shifted from legacy Google Sheet columns
     const isShifted = (className === 69 || className === "69" || campus.toLowerCase() === "yes" || campus.toLowerCase() === "online");
 
     if (isShifted) {
-      // If phone holds "plustwo" or "5", that's the real class
       if (!/^\d{10}$/.test(phone)) {
         className = phone;
         phone = "";
@@ -346,29 +360,7 @@ document.addEventListener("DOMContentLoaded", () => {
       campus = "";
     }
 
-    // 2. Cross-reference with LocalStorage data and overrides to restore true values
-    try {
-      const localDataList = JSON.parse(localStorage.getItem(STORAGE_KEY) || localStorage.getItem("medios26_registrations") || "[]");
-      const localMatch = localDataList.find(item => item && String(item.id).trim() === id);
-      if (localMatch) {
-        if (localMatch.name) name = localMatch.name;
-        if (localMatch.campus && localMatch.campus.toLowerCase() !== "yes") campus = localMatch.campus;
-        if (localMatch.className && localMatch.className !== 69 && localMatch.className !== "69") className = localMatch.className;
-        if (localMatch.phone && /^\d{10}$/.test(localMatch.phone)) phone = localMatch.phone;
-        if (localMatch.paymentProof && localMatch.paymentProof.startsWith("data:image")) paymentProof = localMatch.paymentProof;
-        if (localMatch.status) status = localMatch.status;
-      }
-
-      // Check status override map
-      const overrides = getStatusOverrides();
-      if (overrides[id] && overrides[id].status) {
-        status = overrides[id].status;
-      }
-    } catch (e) {
-      console.warn("Local storage cross-reference notice:", e);
-    }
-
-    // 3. Fallback phone finder across any object key if still missing
+    // 2. Fallback phone finder across any object key if missing
     if (!/^\d{10}$/.test(phone)) {
       for (let k in r) {
         const val = String(r[k] || "").replace(/^'/, "").trim();
@@ -423,8 +415,11 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("reg-count-badge").textContent = total;
   }
 
+  /**
+   * Smart Multi-Word & Multi-Field Search and Filter
+   */
   function renderTable() {
-    const query = (searchInput?.value || "").toLowerCase().trim();
+    const rawQuery = (searchInput?.value || "").trim();
     const filter = filterPayment?.value || "all";
     const tbody = document.getElementById("table-body");
     const emptyState = document.getElementById("empty-state");
@@ -433,14 +428,37 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!tbody) return;
     tbody.innerHTML = "";
 
-    const filtered = registrations.filter(item => {
-      const matchQuery = !query ||
-        (item.name && item.name.toLowerCase().includes(query)) ||
-        (item.campus && item.campus.toLowerCase().includes(query)) ||
-        (item.className && item.className.toLowerCase().includes(query)) ||
-        (item.phone && item.phone.includes(query)) ||
-        (item.id && item.id.toLowerCase().includes(query));
+    // Normalize search query into distinct tokens (e.g. "Adnan 3rd" -> ["adnan", "3rd"])
+    const queryTokens = rawQuery.toLowerCase().split(/\s+/).filter(t => t.length > 0);
 
+    const filtered = registrations.filter(item => {
+      // 1. Multi-Token Search across all fields
+      const matchQuery = queryTokens.length === 0 || queryTokens.every(token => {
+        const id = String(item.id || "").toLowerCase();
+        const rawNumId = id.replace(/[^0-9]/g, "");
+        const name = String(item.name || "").toLowerCase();
+        const campus = String(item.campus || "").toLowerCase();
+        const className = String(item.className || "").toLowerCase();
+        const phone = String(item.phone || "").replace(/[^0-9]/g, "");
+        const rawPhone = String(item.phone || "").toLowerCase();
+        const paymentMethod = String(item.paymentMethod || "").toLowerCase();
+        const status = String(item.status || "").toLowerCase();
+        const cleanToken = token.replace(/[^a-z0-9]/gi, "");
+
+        return (
+          id.includes(token) ||
+          (cleanToken && rawNumId.includes(cleanToken)) ||
+          name.includes(token) ||
+          campus.includes(token) ||
+          className.includes(token) ||
+          rawPhone.includes(token) ||
+          (cleanToken && phone.includes(cleanToken)) ||
+          paymentMethod.includes(token) ||
+          status.includes(token)
+        );
+      });
+
+      // 2. Dropdown Filters
       const isOnline = (item.paymentMethod || "").toLowerCase() === "online" || item.paid === "yes";
       const isVenue = (item.paymentMethod || "").toLowerCase() === "venue" && item.paid !== "yes";
       const isVerified = (item.status || "").toLowerCase().includes("verified") || (item.status || "").toLowerCase().includes("confirmed");
@@ -591,16 +609,19 @@ document.addEventListener("DOMContentLoaded", () => {
     modal.style.display = "flex";
   };
 
-  window.toggleStatus = function (id) {
+  window.toggleStatus = async function (id) {
     const r = registrations.find(item => item.id === id);
     if (!r) return;
 
     const isCurrentlyVerified = (r.status || "").toLowerCase().includes("verified") || (r.status || "").toLowerCase().includes("confirmed");
     const newStatus = isCurrentlyVerified ? "Pending (Venue)" : "Verified";
     
+    // Instant UI update
     r.status = newStatus;
     saveStatusOverride(id, newStatus);
-    saveAndSync();
+    saveLocalSnapshot();
+    renderTable();
+    updateStats();
 
     showToast(`Registration ${id} marked as ${newStatus}`, newStatus === "Verified" ? "success" : "warning");
 
@@ -611,56 +632,56 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (e) {}
     }
 
-    // Async update to Google Apps Script
-    syncStatusToBackend(id, newStatus);
+    // Direct Database Sync to Google Apps Script
+    setSyncStatus("syncing", "⏳ Saving to Database…");
+    await syncStatusToBackend(id, newStatus);
+    setSyncStatus("", "🟢 Database Synced");
   };
 
-  function syncStatusToBackend(id, status) {
+  async function syncStatusToBackend(id, status) {
     if (!window.MC_CONFIG?.API_BASE || window.MC_CONFIG.API_BASE.includes("AKfycbx...")) return;
     
-    // 1. GET with cache-busting
-    const getUrl = `${window.MC_CONFIG.API_BASE}?action=updateStatus&id=${encodeURIComponent(id)}&status=${encodeURIComponent(status)}&_t=${Date.now()}`;
-    fetch(getUrl, { mode: "no-cors", cache: "no-store" })
-      .catch(err => console.warn("GET status update notice:", err));
-
-    // 2. POST payload to guarantee update
     try {
-      fetch(window.MC_CONFIG.API_BASE, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({
-          action: "updateStatus",
-          id: id,
-          status: status
-        })
-      }).catch(() => {});
-    } catch (e) {}
+      const url = `${window.MC_CONFIG.API_BASE}?action=updateStatus&id=${encodeURIComponent(id)}&status=${encodeURIComponent(status)}&_t=${Date.now()}`;
+      await fetch(url, { method: "GET", cache: "no-store" });
+    } catch (e) {
+      console.warn("Backend status update error:", e);
+    }
   }
 
-  window.deleteRecord = function (id) {
+  window.deleteRecord = async function (id) {
     if (!confirm(`Are you sure you want to permanently delete registration record ${id}?`)) return;
 
-    // 1. Add to permanent deleted blacklist
-    addDeletedId(id);
-
-    // 2. Remove from active state
+    // Remove from active state
     registrations = registrations.filter(r => r.id !== id);
-    saveAndSync();
+    saveLocalSnapshot();
+    renderTable();
+    updateStats();
 
-    // 3. Send remote delete command to Google Apps Script
+    showToast(`Registration ${id} deleted`, "warning");
+
+    // Broadcast update across tabs
+    if (syncChannel) {
+      try {
+        syncChannel.postMessage({ type: "DATA_REFRESH" });
+      } catch (e) {}
+    }
+
+    // Direct remote delete command to Google Apps Script database
     if (window.MC_CONFIG?.API_BASE && !window.MC_CONFIG.API_BASE.includes("AKfycbx...")) {
-      fetch(`${window.MC_CONFIG.API_BASE}?action=deleteRegistration&id=${encodeURIComponent(id)}`, {
-        mode: "no-cors"
-      }).catch(err => console.warn("Remote delete warning:", err));
+      setSyncStatus("syncing", "⏳ Deleting from Database…");
+      try {
+        await fetch(`${window.MC_CONFIG.API_BASE}?action=deleteRegistration&id=${encodeURIComponent(id)}&_t=${Date.now()}`);
+        setSyncStatus("", "🟢 Database Synced");
+      } catch (err) {
+        console.warn("Remote delete warning:", err);
+      }
     }
   };
 
-  function saveAndSync() {
+  function saveLocalSnapshot() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(registrations));
     localStorage.setItem("medios26_registrations", JSON.stringify(registrations));
-    updateStats();
-    renderTable();
   }
 
   function exportToCSV() {

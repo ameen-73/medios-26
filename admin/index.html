@@ -98,6 +98,7 @@
           <h1>REGISTRATIONS DESK.</h1>
         </div>
         <div class="admin-header-actions">
+          <span id="sync-status-pill" class="sync-status-pill" title="Live Database Connection Active">🟢 Database Synced</span>
           <button id="refresh-btn">🔄 Refresh</button>
           <button id="export-csv-btn">📥 Export CSV</button>
           <button id="export-json-btn">📦 Export JSON</button>
@@ -130,7 +131,11 @@
         <div class="admin-card">
           <div class="card-top-bar">
             <div class="search-filter-box">
-              <input type="text" id="search-input" placeholder="Search by name, campus, class, phone, or ID...">
+              <div class="search-input-wrap">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-input" placeholder="Search by name, campus, class, phone, or ID...">
+                <button type="button" id="search-clear-btn" class="search-clear-btn" style="display: none;" title="Clear search">✕</button>
+              </div>
               <select id="filter-payment">
                 <option value="all">All Records</option>
                 <option value="online">Online Paid (₹69)</option>

@@ -140,12 +140,12 @@ document.addEventListener("DOMContentLoaded", () => {
         console.warn("LocalStorage save warning:", err);
       }
 
-      // 2. Submit to Google Apps Script backend if configured
-      let backendSuccess = false;
+      // 2. Submit to Google Apps Script backend database
       if (window.MC_CONFIG?.API_BASE && !window.MC_CONFIG.API_BASE.includes("AKfycbx...")) {
         try {
-          const res = await fetch(window.MC_CONFIG.API_BASE, {
+          await fetch(window.MC_CONFIG.API_BASE, {
             method: "POST",
+            mode: "no-cors",
             headers: {
               "Content-Type": "text/plain;charset=utf-8"
             },
@@ -154,9 +154,6 @@ document.addEventListener("DOMContentLoaded", () => {
               data: record
             })
           });
-          if (res.ok) {
-            backendSuccess = true;
-          }
         } catch (apiErr) {
           console.warn("Backend API sync warning (saved locally):", apiErr);
         }
