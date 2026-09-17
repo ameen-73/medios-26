@@ -437,6 +437,58 @@ tbody tr:hover {
   display: inline-block;
 }
 
+.badge-status-btn {
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-body);
+  user-select: none;
+}
+
+.badge-status-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  filter: brightness(0.95);
+}
+
+.badge-status-btn:active {
+  transform: translateY(0);
+}
+
+.admin-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #181715;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 4px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border-left: 4px solid var(--o);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(20px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 99999;
+  pointer-events: none;
+}
+
+.admin-toast.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.admin-toast.success {
+  border-left-color: #28a745;
+}
+
+.admin-toast.warning {
+  border-left-color: var(--y);
+}
+
 .btn-proof-thumb {
   background: none;
   border: 1px solid #bbb;

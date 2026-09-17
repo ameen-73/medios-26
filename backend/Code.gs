@@ -165,9 +165,14 @@ function updateStatusById(sheet, id, newStatus) {
   if (!id) return { status: "error", message: "Missing ID" };
 
   const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return { status: "error", message: "No data in sheet" };
+
   const headers = data[0];
   let statusColIndex = headers.findIndex(h => String(h).toLowerCase().includes("status"));
-  if (statusColIndex === -1) statusColIndex = 10;
+  if (statusColIndex === -1) {
+    statusColIndex = 10;
+    sheet.getRange(1, 11).setValue("Status").setFontWeight("bold").setBackground("#f0521f").setFontColor("#ffffff");
+  }
 
   for (let i = 1; i < data.length; i++) {
     const rowId = String(data[i][0]).trim();
@@ -268,7 +273,9 @@ function getAllRegistrations(sheet) {
     let paid = String(row[7] || obj["paid"] || "yes").toLowerCase();
     let amount = Number(row[8] || obj["amount"] || 69);
     let proof = String(row[9] || obj["payment proof url"] || obj["payment proof"] || "");
-    let status = String(row[10] || obj["status"] || "Verified");
+    let status = (row[10] !== undefined && String(row[10]).trim() !== "") 
+      ? String(row[10]).trim() 
+      : (obj["status"] ? String(obj["status"]).trim() : (paymentMethod.includes("venue") ? "Pending (Venue)" : "Verified"));
 
     // Auto-fix if campus is "yes" / "no" / "online"
     if (campus.toLowerCase() === "yes" || campus.toLowerCase() === "online") {

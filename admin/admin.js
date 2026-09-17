@@ -8,8 +8,47 @@ const DEFAULT_PASS = "med@231";
 const AUTH_KEY = "mc26_admin_authenticated";
 const STORAGE_KEY = "medios26_registrations_v2";
 const DELETED_KEY = "mc26_deleted_ids_v1";
+const STATUS_OVERRIDES_KEY = "mc26_status_overrides_v1";
 
 let registrations = [];
+let syncChannel = null;
+
+function getStatusOverrides() {
+  try {
+    return JSON.parse(localStorage.getItem(STATUS_OVERRIDES_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveStatusOverride(id, status) {
+  if (!id) return;
+  try {
+    const overrides = getStatusOverrides();
+    overrides[String(id).trim()] = {
+      status: status,
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem(STATUS_OVERRIDES_KEY, JSON.stringify(overrides));
+  } catch (e) {
+    console.warn("Status override save error:", e);
+  }
+}
+
+function showToast(message, type = "success") {
+  let toast = document.getElementById("admin-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "admin-toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = `admin-toast show ${type}`;
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(() => {
+    toast.className = "admin-toast";
+  }, 2800);
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   // Elements
@@ -36,9 +75,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Real-time broadcast channel listener for live sync across tabs
   try {
     if (typeof BroadcastChannel !== "undefined") {
-      const syncChannel = new BroadcastChannel("medios26_sync");
+      syncChannel = new BroadcastChannel("medios26_sync");
       syncChannel.onmessage = (event) => {
-        if (event.data && event.data.type === "NEW_REGISTRATION") {
+        if (event.data && (event.data.type === "NEW_REGISTRATION" || event.data.type === "STATUS_UPDATE")) {
           loadRegistrations();
         }
       };
@@ -49,7 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Also listen to window storage event for real-time update
   window.addEventListener("storage", (e) => {
-    if (e.key === STORAGE_KEY || e.key === "medios26_registrations") {
+    if (e.key === STORAGE_KEY || e.key === "medios26_registrations" || e.key === STATUS_OVERRIDES_KEY) {
       loadRegistrations();
     }
   });
@@ -179,6 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function loadRegistrations() {
     const deletedIds = getDeletedIds();
+    const overrides = getStatusOverrides();
 
     // 1. Fetch from LocalStorage
     let localData = [];
@@ -191,19 +231,32 @@ document.addEventListener("DOMContentLoaded", () => {
     // Clean and filter local data
     localData = localData
       .map(cleanRecord)
-      .filter(r => r && isValidRecord(r) && !deletedIds.has(String(r.id).trim()));
+      .filter(r => r && isValidRecord(r) && !deletedIds.has(String(r.id).trim()))
+      .map(r => {
+        if (overrides[r.id] && overrides[r.id].status) {
+          r.status = overrides[r.id].status;
+        }
+        return r;
+      });
 
     registrations = localData;
 
     // 2. Fetch from Google Apps Script Web App API if available
     if (window.MC_CONFIG?.API_BASE && !window.MC_CONFIG.API_BASE.includes("AKfycbx...")) {
       try {
-        const res = await fetch(`${window.MC_CONFIG.API_BASE}?action=getRegistrations`);
+        const res = await fetch(`${window.MC_CONFIG.API_BASE}?action=getRegistrations&_t=${Date.now()}`);
         const json = await res.json();
         if (json && json.status === "success" && Array.isArray(json.data)) {
           const remoteRecords = json.data
             .map(cleanRecord)
-            .filter(r => r && isValidRecord(r) && !deletedIds.has(String(r.id).trim()));
+            .filter(r => r && isValidRecord(r) && !deletedIds.has(String(r.id).trim()))
+            .map(r => {
+              // Apply persistent status overrides if any exist locally
+              if (overrides[r.id] && overrides[r.id].status) {
+                r.status = overrides[r.id].status;
+              }
+              return r;
+            });
 
           const merged = [...remoteRecords];
 
@@ -215,6 +268,8 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           registrations = merged;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(registrations));
+          localStorage.setItem("medios26_registrations", JSON.stringify(registrations));
         }
       } catch (err) {
         console.warn("Remote backend fetch error (using clean localStorage):", err);
@@ -275,7 +330,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let paid = (r.paid || (paymentMethod === "online" ? "yes" : "no")).toLowerCase();
     let amount = 69;
     let paymentProof = r.paymentProof || r["Payment Proof URL"] || r["Payment Proof"] || r.proof || "";
-    let status = r.status || r["Status"] || "Verified";
+    let status = r.status || r["Status"] || "";
 
     // 1. Detect if shifted from legacy Google Sheet (where className was 69, campus was "yes", phone was class name)
     const isShifted = (className === 69 || className === "69" || campus.toLowerCase() === "yes" || campus.toLowerCase() === "online");
@@ -291,7 +346,7 @@ document.addEventListener("DOMContentLoaded", () => {
       campus = "";
     }
 
-    // 2. Cross-reference with LocalStorage data to restore true values (Phone, Campus, Screenshot)
+    // 2. Cross-reference with LocalStorage data and overrides to restore true values
     try {
       const localDataList = JSON.parse(localStorage.getItem(STORAGE_KEY) || localStorage.getItem("medios26_registrations") || "[]");
       const localMatch = localDataList.find(item => item && String(item.id).trim() === id);
@@ -301,6 +356,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (localMatch.className && localMatch.className !== 69 && localMatch.className !== "69") className = localMatch.className;
         if (localMatch.phone && /^\d{10}$/.test(localMatch.phone)) phone = localMatch.phone;
         if (localMatch.paymentProof && localMatch.paymentProof.startsWith("data:image")) paymentProof = localMatch.paymentProof;
+        if (localMatch.status) status = localMatch.status;
+      }
+
+      // Check status override map
+      const overrides = getStatusOverrides();
+      if (overrides[id] && overrides[id].status) {
+        status = overrides[id].status;
       }
     } catch (e) {
       console.warn("Local storage cross-reference notice:", e);
@@ -382,7 +444,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const isOnline = (item.paymentMethod || "").toLowerCase() === "online" || item.paid === "yes";
       const isVenue = (item.paymentMethod || "").toLowerCase() === "venue" && item.paid !== "yes";
       const isVerified = (item.status || "").toLowerCase().includes("verified") || (item.status || "").toLowerCase().includes("confirmed");
-      const isPending = (item.status || "").toLowerCase().includes("pending");
+      const isPending = !isVerified || (item.status || "").toLowerCase().includes("pending");
 
       let matchFilter = true;
       if (filter === "online") matchFilter = isOnline;
@@ -412,7 +474,14 @@ document.addEventListener("DOMContentLoaded", () => {
         ? `<button class="btn-proof-thumb" onclick="window.viewProof('${escapeHtml(r.id)}')">📷 View</button>`
         : `<span style="color:#aaa; font-size:0.75rem;">None</span>`;
 
-      const statusBadge = `<span class="${isVerified ? 'badge-paid' : 'badge-venue'}" style="cursor:pointer;" onclick="window.toggleStatus('${escapeHtml(r.id)}')" title="Click to toggle status">${escapeHtml(r.status || (isOnline ? 'Verified' : 'Pending'))} ⟳</span>`;
+      const statusBadge = `
+        <button 
+          class="badge-status-btn ${isVerified ? 'badge-paid' : 'badge-venue'}" 
+          onclick="window.toggleStatus('${escapeHtml(r.id)}')" 
+          title="Click to toggle Verified / Pending status">
+          ${isVerified ? '✓ Verified' : '⏳ Pending'} ⟳
+        </button>
+      `;
 
       // Name in solid black with bold weight
       const nameHtml = `
@@ -454,6 +523,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const modal = document.getElementById("details-modal");
     const body = document.getElementById("details-modal-body");
     const isOnline = (r.paymentMethod || "").toLowerCase() === "online" || r.paid === "yes";
+    const isVerified = (r.status || "").toLowerCase().includes("verified") || (r.status || "").toLowerCase().includes("confirmed");
     const hasProof = r.paymentProof && (r.paymentProof.startsWith("data:image") || r.paymentProof.startsWith("http"));
 
     body.innerHTML = `
@@ -469,7 +539,15 @@ document.addEventListener("DOMContentLoaded", () => {
         </span>
         <strong style="color:#aaa;">Payment Mode:</strong> <span><b>${isOnline ? 'Online UPI (₹69)' : 'Pay at the Venue (₹69)'}</b></span>
         <strong style="color:#aaa;">Fee Amount:</strong> <span>₹${escapeHtml(String(r.amount || 69))}</span>
-        <strong style="color:#aaa;">Status:</strong> <span>${escapeHtml(r.status || 'Verified')}</span>
+        <strong style="color:#aaa;">Verification Status:</strong> 
+        <span>
+          <button 
+            class="badge-status-btn ${isVerified ? 'badge-paid' : 'badge-venue'}" 
+            onclick="window.toggleStatus('${escapeHtml(r.id)}'); window.viewDetails('${escapeHtml(r.id)}');" 
+            title="Click to toggle status">
+            ${isVerified ? '✓ Verified' : '⏳ Pending'} ⟳ (Click to Toggle)
+          </button>
+        </span>
         <strong style="color:#aaa;">Registration Date:</strong> <span>${formatDate(r.timestamp)}</span>
       </div>
 
@@ -517,21 +595,48 @@ document.addEventListener("DOMContentLoaded", () => {
     const r = registrations.find(item => item.id === id);
     if (!r) return;
 
-    if ((r.status || "").toLowerCase().includes("verified") || (r.status || "").toLowerCase().includes("confirmed")) {
-      r.status = "Pending (Venue)";
-    } else {
-      r.status = "Verified";
-    }
-
+    const isCurrentlyVerified = (r.status || "").toLowerCase().includes("verified") || (r.status || "").toLowerCase().includes("confirmed");
+    const newStatus = isCurrentlyVerified ? "Pending (Venue)" : "Verified";
+    
+    r.status = newStatus;
+    saveStatusOverride(id, newStatus);
     saveAndSync();
 
-    // Async update to Google Apps Script
-    if (window.MC_CONFIG?.API_BASE && !window.MC_CONFIG.API_BASE.includes("AKfycbx...")) {
-      fetch(`${window.MC_CONFIG.API_BASE}?action=updateStatus&id=${encodeURIComponent(id)}&status=${encodeURIComponent(r.status)}`, {
-        mode: "no-cors"
-      }).catch(err => console.warn("Backend status update:", err));
+    showToast(`Registration ${id} marked as ${newStatus}`, newStatus === "Verified" ? "success" : "warning");
+
+    // Broadcast update across open browser tabs
+    if (syncChannel) {
+      try {
+        syncChannel.postMessage({ type: "STATUS_UPDATE", id: id, status: newStatus });
+      } catch (e) {}
     }
+
+    // Async update to Google Apps Script
+    syncStatusToBackend(id, newStatus);
   };
+
+  function syncStatusToBackend(id, status) {
+    if (!window.MC_CONFIG?.API_BASE || window.MC_CONFIG.API_BASE.includes("AKfycbx...")) return;
+    
+    // 1. GET with cache-busting
+    const getUrl = `${window.MC_CONFIG.API_BASE}?action=updateStatus&id=${encodeURIComponent(id)}&status=${encodeURIComponent(status)}&_t=${Date.now()}`;
+    fetch(getUrl, { mode: "no-cors", cache: "no-store" })
+      .catch(err => console.warn("GET status update notice:", err));
+
+    // 2. POST payload to guarantee update
+    try {
+      fetch(window.MC_CONFIG.API_BASE, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "updateStatus",
+          id: id,
+          status: status
+        })
+      }).catch(() => {});
+    } catch (e) {}
+  }
 
   window.deleteRecord = function (id) {
     if (!confirm(`Are you sure you want to permanently delete registration record ${id}?`)) return;
